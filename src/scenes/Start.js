@@ -5,19 +5,13 @@ export class Start extends Phaser.Scene {
     }
 
     preload() {
-        // Imagens principais
         this.load.image('quarto', 'assets/janela.png');
         this.load.image('livro', 'assets/livro.png');
         this.load.image('livroZoom', 'assets/livroZoom.png');
-
-        // UI
-        this.load.image('textbox', 'assets/textbox.png');
     }
 
     create() {
         this.stage = 0;
-
-        // Primeira tela — quarto com janela
         this.background = this.add.image(640, 360, 'quarto');
 
         this.input.on('pointerdown', () => {
@@ -28,12 +22,15 @@ export class Start extends Phaser.Scene {
                 this.mostrarTextoDoLivro();
             }
             else if (this.stage === 2) {
-                this.mostrarLivroZoom(); // já sem a caixa de texto
+                this.mostrarLivroZoom();
+            }
+            else if (this.stage === 3) {
+                this.mostrarCortinasETitulo();
             }
         });
     }
 
-    // --- Clique 1 ---
+      // --- Clique 1 ---
     mostrarLivro() {
         this.stage = 1;
         this.background.setTexture('livro');
@@ -44,14 +41,9 @@ export class Start extends Phaser.Scene {
     mostrarTextoDoLivro() {
         this.stage = 2;
 
-        // Fundo escuro translúcido
+        
         this.overlay = this.add.rectangle(
-            640,    // centro X
-            360,    // centro Y
-            1100,   // largura
-            260,    // altura
-            0x000000,
-            0.55
+            640, 360, 1100, 260, 0x000000, 0.55
         );
 
         // Texto do livro
@@ -63,7 +55,6 @@ Compilado a partir dos resultados de matemáticos
 como Niccolò Tartaglia e Scipione del Ferro,
 marca um ponto de virada na matemática renascentista.`;
 
-        // Centralização do texto
         this.texto = this.add.text(640, 360, conteudo, {
             fontFamily: 'serif',
             fontSize: '22px',
@@ -77,12 +68,125 @@ marca um ponto de virada na matemática renascentista.`;
     mostrarLivroZoom() {
         this.stage = 3;
 
-        // Remover caixa de texto + fundo escurecido
+        
         if (this.overlay) this.overlay.destroy();
         if (this.texto) this.texto.destroy();
 
-        // Trocar para a imagem do livro ampliado
+       
         this.background.setTexture('livroZoom');
         this.background.setScale(0.8);
+    }
+
+
+    criarCortinaEsquerda() {
+        const graphics = this.add.graphics();
+        
+        
+        graphics.fillStyle(0x8B0000);
+        graphics.fillRect(0, 0, 400, 720);
+        
+        
+        graphics.fillStyle(0x660000);
+        for (let i = 0; i < 8; i++) {
+            graphics.fillRect(50 + i * 45, 0, 20, 720);
+        }
+        
+        
+        graphics.fillStyle(0xDAA520);
+        graphics.fillRect(0, 680, 400, 40);
+        
+        
+        graphics.fillStyle(0xB8860B);
+        for (let x = 0; x < 400; x += 8) {
+            graphics.fillRect(x, 680, 4, 10);
+        }
+        
+        graphics.generateTexture('cortinaEsquerda', 400, 720);
+        graphics.destroy();
+        
+        return this.add.image(-200, 360, 'cortinaEsquerda').setOrigin(0.5).setScale(1.2);
+    }
+
+    
+    criarCortinaDireita() {
+        const graphics = this.add.graphics();
+        
+        
+        graphics.fillStyle(0x8B0000);
+        graphics.fillRect(0, 0, 400, 720);
+        
+       
+        graphics.fillStyle(0x660000);
+        for (let i = 0; i < 8; i++) {
+            graphics.fillRect(330 - i * 45, 0, 20, 720);
+        }
+        
+        
+        graphics.fillStyle(0xDAA520);
+        graphics.fillRect(0, 680, 400, 40);
+        
+        
+        graphics.fillStyle(0xB8860B);
+        for (let x = 0; x < 400; x += 8) {
+            graphics.fillRect(x, 680, 4, 10);
+        }
+        
+        graphics.generateTexture('cortinaDireita', 400, 720);
+        graphics.destroy();
+        
+        return this.add.image(1480, 360, 'cortinaDireita').setOrigin(0.5).setScale(1.2);
+    }
+
+    
+    mostrarCortinasETitulo() {
+        this.stage = 4;
+
+        
+        this.curtainLeft = this.criarCortinaEsquerda();
+        this.curtainRight = this.criarCortinaDireita();
+
+        
+        this.tweens.add({
+            targets: this.curtainLeft,
+            x: 320,
+            duration: 1500,
+            ease: 'Power2'
+        });
+
+        this.tweens.add({
+            targets: this.curtainRight,
+            x: 960,
+            duration: 1500,
+            ease: 'Power2',
+            onComplete: () => {
+                this.mostrarTitulo();
+            }
+        });
+    }
+
+    mostrarTitulo() {
+        
+        this.titulo = this.add.text(640, 260, 'A FÓRMULA SECRETA', {
+            fontFamily: 'Georgia, serif',
+            fontSize: '64px',
+            color: '#ffffffff',
+            stroke: '#000000',
+            strokeThickness: 6,
+            shadow: {
+                offsetX: 3,
+                offsetY: 3,
+                color: '#000',
+                blur: 5,
+                stroke: true,
+                fill: true
+            }
+        }).setOrigin(0.5).setAlpha(0);
+
+        this.tweens.add({
+            targets: [this.titulo],
+            alpha: 1,
+            duration: 2000,
+            ease: 'Power2'
+        });
     }
 }
