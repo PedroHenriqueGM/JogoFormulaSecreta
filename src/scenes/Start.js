@@ -1,192 +1,215 @@
 export class Start extends Phaser.Scene {
-
     constructor() {
         super('Start');
     }
 
     preload() {
+        // Estaticos
         this.load.image('quarto', 'assets/janela.png');
-        this.load.image('livro', 'assets/livro.png');
         this.load.image('livroZoom', 'assets/livroZoom.png');
+
+
+        // Spritesheets para livro e cortina 
+        this.load.spritesheet('livroAnimado', 'assets/livro.png', { 
+            frameWidth: 767, 
+            frameHeight: 511,
+            spacing: 2
+        });
+
+        this.load.spritesheet('cortinasAnimadas', 'assets/cortinas.png', { 
+            frameWidth: 767, 
+            frameHeight: 511,
+            spacing: 2 
+        });
+
+        //trilha sonora
+        this.load.audio('musicaIntro', 'assets/musica1.mp3');
+
+        //aumenta o volume da musica com o tempo
+        this.tweens.add({
+        targets: this.musica,
+        volume: 0.5,
+        duration: 3000
+    });
     }
 
     create() {
         this.stage = 0;
-        this.background = this.add.image(640, 360, 'quarto');
 
+        this.musica = this.sound.add('musicaIntro', {
+        loop: true,   
+        volume: 0.5   
+        });
+
+
+        // inicio da trilha sonora
+        this.musica.play({
+        seek: 12,
+        volume: 0.5
+        });
+
+        // Primeira cena
+        this.background = this.add.image(640, 360, 'quarto');
+        this.background.setDisplaySize(1280, 720);
+        
+        // Animação lenta da igreja
+        this.tweens.add({
+            targets: this.background,
+            scaleX: this.background.scaleX * 1.10, //zoom de 10%
+            scaleY: this.background.scaleY * 1.10,
+            duration: 8000,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // avança para proxima cena em 5 segundos
+        this.agendarProximaCena(5000);
+
+        // pode avançar tambem por clique se o usuario quiser tambem
         this.input.on('pointerdown', () => {
-            if (this.stage === 0) {
-                this.mostrarLivro();
-            }
-            else if (this.stage === 1) {
-                this.mostrarTextoDoLivro();
-            }
-            else if (this.stage === 2) {
-                this.mostrarLivroZoom();
-            }
-            else if (this.stage === 3) {
-                this.mostrarCortinasETitulo();
-            }
+            this.avancarCena();
         });
     }
 
-      // --- Clique 1 ---
-    mostrarLivro() {
-        this.stage = 1;
-        this.background.setTexture('livro');
-        this.background.setScale(1);
+    // Função para passar de cena 
+    agendarProximaCena(tempo) {
+        if (this.timerEvento) this.timerEvento.remove(); // Limpa o timer da cena anterior
+        this.timerEvento = this.time.delayedCall(tempo, () => this.avancarCena());
     }
 
-    // --- Clique 2 ---
+    avancarCena() {
+        if (this.stage === 0) {
+            this.mostrarLivro();
+        } else if (this.stage === 1) {
+            this.mostrarTextoDoLivro();
+        } else if (this.stage === 2) {
+            this.mostrarLivroZoom();
+        } else if (this.stage === 3) {
+            this.mostrarCortinasETitulo();
+        }
+    }
+
+    // Animação do livro e da vela se mexendo 
+    mostrarLivro() {
+        this.stage = 1;
+        this.background.setVisible(false); // Esconde a igreja
+
+        // Criar animação do livro folheando
+        if (!this.anims.exists('animacaoLivro')) {
+            this.anims.create({
+                key: 'animacaoLivro',
+                frames: this.anims.generateFrameNumbers('livroAnimado', { start: 0, end: 3 }),//sao 4 frames
+                frameRate: 5,
+                repeat: -1
+            });
+        }
+
+        // Adiciona o sprite animado
+        this.livroAtivo = this.add.sprite(640, 360, 'livroAnimado');
+        this.livroAtivo.setDisplaySize(1282, 722); 
+        this.livroAtivo.play('animacaoLivro');
+
+        this.agendarProximaCena(5000);
+    }
+
+    // passa para o texto da ars magna 
     mostrarTextoDoLivro() {
         this.stage = 2;
 
-        
-        this.overlay = this.add.rectangle(
-            640, 360, 1100, 260, 0x000000, 0.55
-        );
+        this.overlay = this.add.rectangle(640, 360, 1100, 260, 0x000000, 0.6).setAlpha(0);
 
-        // Texto do livro
         const conteudo = 
 `"Ars Magna" — o tratado que sistematiza os métodos
 para resolver equações cúbicas e quárticas.
 
 Compilado a partir dos resultados de matemáticos
-como Niccolò Tartaglia e Scipione del Ferro,
-marca um ponto de virada na matemática renascentista.`;
+como Niccolò Tartaglia e Scipione del Ferro.`;
 
         this.texto = this.add.text(640, 360, conteudo, {
-            fontFamily: 'serif',
-            fontSize: '22px',
+            fontFamily: '"VT323"', 
+            fontSize: '28px',
             color: '#ffffff',
             align: 'center',
+            lineSpacing: 12,
             wordWrap: { width: 1000 }
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setAlpha(0);
+
+        this.tweens.add({
+            targets: [this.overlay, this.texto],
+            alpha: 1,
+            duration: 1000
+        });
+
+        this.agendarProximaCena(7000);
     }
 
-    // --- Clique 3 ---
+    // imagem fixa do zoom dos algoritmos ( a mudar )
     mostrarLivroZoom() {
         this.stage = 3;
 
-        
+        // Limpa o sprite animado e o texto, para seguir para proxima imagem  ( sempre importante fazer isso)
+        if (this.background) this.background.destroy();
         if (this.overlay) this.overlay.destroy();
         if (this.texto) this.texto.destroy();
+        if (this.livroAtivo) this.livroAtivo.destroy();
 
-       
-        this.background.setTexture('livroZoom');
-        this.background.setScale(0.8);
+        // voltando a usar o background para a imagem estática de zoom
+        this.background = this.add.image(640, 360, 'livroZoom');
+
+        const escalaParaCaber = 1280 / 1536;
+        this.background.setScale(escalaParaCaber);
+
+        this.tweens.add({
+        targets: this.background,
+        scaleX: this.background.scaleX * 1.06,
+        scaleY: this.background.scaleY * 1.06,
+        duration: 6000,
+        ease: 'Cubic.easeInOut'
+    });
+
+        this.agendarProximaCena(5000);
     }
 
-
-    criarCortinaEsquerda() {
-        const graphics = this.add.graphics();
-        
-        
-        graphics.fillStyle(0x8B0000);
-        graphics.fillRect(0, 0, 400, 720);
-        
-        
-        graphics.fillStyle(0x660000);
-        for (let i = 0; i < 8; i++) {
-            graphics.fillRect(50 + i * 45, 0, 20, 720);
-        }
-        
-        
-        graphics.fillStyle(0xDAA520);
-        graphics.fillRect(0, 680, 400, 40);
-        
-        
-        graphics.fillStyle(0xB8860B);
-        for (let x = 0; x < 400; x += 8) {
-            graphics.fillRect(x, 680, 4, 10);
-        }
-        
-        graphics.generateTexture('cortinaEsquerda', 400, 720);
-        graphics.destroy();
-        
-        return this.add.image(-200, 360, 'cortinaEsquerda').setOrigin(0.5).setScale(1.2);
-    }
-
-    
-    criarCortinaDireita() {
-        const graphics = this.add.graphics();
-        
-        
-        graphics.fillStyle(0x8B0000);
-        graphics.fillRect(0, 0, 400, 720);
-        
-       
-        graphics.fillStyle(0x660000);
-        for (let i = 0; i < 8; i++) {
-            graphics.fillRect(330 - i * 45, 0, 20, 720);
-        }
-        
-        
-        graphics.fillStyle(0xDAA520);
-        graphics.fillRect(0, 680, 400, 40);
-        
-        
-        graphics.fillStyle(0xB8860B);
-        for (let x = 0; x < 400; x += 8) {
-            graphics.fillRect(x, 680, 4, 10);
-        }
-        
-        graphics.generateTexture('cortinaDireita', 400, 720);
-        graphics.destroy();
-        
-        return this.add.image(1480, 360, 'cortinaDireita').setOrigin(0.5).setScale(1.2);
-    }
-
-    
+    // animaçaõ das cortinas ( a melhorar )
     mostrarCortinasETitulo() {
         this.stage = 4;
+        if (this.timerEvento) this.timerEvento.remove();
 
-        
-        this.curtainLeft = this.criarCortinaEsquerda();
-        this.curtainRight = this.criarCortinaDireita();
+       if (!this.anims.exists('fecharCortinas')) {
+            this.anims.create({
+                key: 'fecharCortinas',
+                frames: this.anims.generateFrameNumbers('cortinasAnimadas', { start: 0, end: 3 }),
+                frameRate: 4, // velocidade para fechar de forma suave
+                repeat: 0    
+            });
+        }
 
-        
-        this.tweens.add({
-            targets: this.curtainLeft,
-            x: 320,
-            duration: 1500,
-            ease: 'Power2'
-        });
+        this.cortinaSprite = this.add.sprite(640, 360, 'cortinasAnimadas').setDisplaySize(1282, 722);
 
-        this.tweens.add({
-            targets: this.curtainRight,
-            x: 960,
-            duration: 1500,
-            ease: 'Power2',
-            onComplete: () => {
-                this.mostrarTitulo();
-            }
+        this.cortinaSprite.play('fecharCortinas');
+        this.cortinaSprite.on('animationcomplete', () => {
+        this.mostrarTitulo();
         });
     }
 
     mostrarTitulo() {
-        
-        this.titulo = this.add.text(640, 260, 'A FÓRMULA SECRETA', {
-            fontFamily: 'Georgia, serif',
-            fontSize: '64px',
+        this.titulo = this.add.text(640, 360, 'A FÓRMULA SECRETA', {
+            fontFamily: '"VT323"',
+            fontSize: '120px',
             color: '#ffffffff',
             stroke: '#000000',
-            strokeThickness: 6,
-            shadow: {
-                offsetX: 3,
-                offsetY: 3,
-                color: '#000',
-                blur: 5,
-                stroke: true,
-                fill: true
-            }
+            strokeThickness: 8
         }).setOrigin(0.5).setAlpha(0);
 
         this.tweens.add({
-            targets: [this.titulo],
+            targets: this.titulo,
             alpha: 1,
+            y: 340,
             duration: 2000,
-            ease: 'Power2'
+            ease: 'Back.easeOut'
         });
+
     }
+
+    
 }
