@@ -1,17 +1,39 @@
 import { Start } from './scenes/Start.js';
+// import { Level_1 } from './scenes/Level_1.js'; 
+// import { UI_Map } from './scenes/UI_Map.js';
 
 const config = {
     type: Phaser.AUTO,
-    title: 'Overlord Rising',
-    description: '',
+    title: 'A Fórmula Secreta',
     parent: 'game-container',
-    width: 1280,
-    height: 720,
+
+    width: 640,
+    height: 360,
+    
     backgroundColor: '#000000',
-    pixelArt: false,
+
+    pixelArt: true,
+    render: {
+        antialias: false,
+        pixelArt: true,
+        roundPixels: true 
+    },
+    
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            debug: false
+        }
+    },
+
+  
     scene: [
         Start
+        // Level_1, 
+        // UI_Map
     ],
+
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
@@ -19,4 +41,3 @@ const config = {
 }
 
 new Phaser.Game(config);
-            

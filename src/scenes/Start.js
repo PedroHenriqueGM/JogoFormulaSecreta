@@ -34,24 +34,28 @@ export class Start extends Phaser.Scene {
     }
 
     create() {
+
+        const { width, height } = this.scale; 
+        
         this.stage = 0;
 
         this.musica = this.sound.add('musicaIntro', {
-        loop: true,   
-        volume: 0.5   
+            loop: true,   
+            volume: 0.5   
         });
 
+        this.musica.play({ seek: 12, volume: 0 }); 
 
-        // inicio da trilha sonora
-        this.musica.play({
-        seek: 12,
-        volume: 0.5
+        // fade in
+        this.tweens.add({
+            targets: this.musica,
+            volume: 0.5,
+            duration: 3000
         });
-
-        // Primeira cena
-        this.background = this.add.image(640, 360, 'quarto');
-        this.background.setDisplaySize(1280, 720);
         
+        this.background = this.add.image(width / 2, height / 2, 'quarto');
+        this.background.setDisplaySize(width, height);
+
         // Animação lenta da igreja
         this.tweens.add({
             targets: this.background,
@@ -94,6 +98,8 @@ export class Start extends Phaser.Scene {
         this.stage = 1;
         this.background.setVisible(false); // Esconde a igreja
 
+        const { width, height } = this.scale;
+
         // Criar animação do livro folheando
         if (!this.anims.exists('animacaoLivro')) {
             this.anims.create({
@@ -104,9 +110,9 @@ export class Start extends Phaser.Scene {
             });
         }
 
-        // Adiciona o sprite animado
-        this.livroAtivo = this.add.sprite(640, 360, 'livroAnimado');
-        this.livroAtivo.setDisplaySize(1282, 722); 
+        this.livroAtivo = this.add.sprite(width / 2, height / 2, 'livroAnimado');
+        
+        this.livroAtivo.setDisplaySize(width, height);
         this.livroAtivo.play('animacaoLivro');
 
         this.agendarProximaCena(5000);
@@ -115,23 +121,23 @@ export class Start extends Phaser.Scene {
     // passa para o texto da ars magna 
     mostrarTextoDoLivro() {
         this.stage = 2;
-
-        this.overlay = this.add.rectangle(640, 360, 1100, 260, 0x000000, 0.6).setAlpha(0);
+        const { width, height } = this.scale;
+        this.overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setAlpha(0);
 
         const conteudo = 
-`"Ars Magna" — o tratado que sistematiza os métodos
-para resolver equações cúbicas e quárticas.
+        `"Ars Magna" — o tratado que sistematiza os métodos
+        para resolver equações cúbicas e quárticas.
 
-Compilado a partir dos resultados de matemáticos
-como Niccolò Tartaglia e Scipione del Ferro.`;
+        Compilado a partir dos resultados de matemáticos
+        como Niccolò Tartaglia e Scipione del Ferro.`;
 
-        this.texto = this.add.text(640, 360, conteudo, {
+       this.texto = this.add.text(width / 2, height / 2, conteudo, {
             fontFamily: '"VT323"', 
-            fontSize: '28px',
+            fontSize: '18px',
             color: '#ffffff',
             align: 'center',
-            lineSpacing: 12,
-            wordWrap: { width: 1000 }
+            lineSpacing: 5,
+            wordWrap: { width: width * 0.9 } // margem de segurança
         }).setOrigin(0.5).setAlpha(0);
 
         this.tweens.add({
@@ -144,28 +150,32 @@ como Niccolò Tartaglia e Scipione del Ferro.`;
     }
 
     // imagem fixa do zoom dos algoritmos ( a mudar )
-    mostrarLivroZoom() {
+   mostrarLivroZoom() {
         this.stage = 3;
+        const { width, height } = this.scale;
 
-        // Limpa o sprite animado e o texto, para seguir para proxima imagem  ( sempre importante fazer isso)
+        // limpeza
         if (this.background) this.background.destroy();
         if (this.overlay) this.overlay.destroy();
         if (this.texto) this.texto.destroy();
         if (this.livroAtivo) this.livroAtivo.destroy();
 
-        // voltando a usar o background para a imagem estática de zoom
-        this.background = this.add.image(640, 360, 'livroZoom');
+        // background novo centralizado
+        this.background = this.add.image(width / 2, height / 2, 'livroZoom');
 
-        const escalaParaCaber = 1280 / 1536;
-        this.background.setScale(escalaParaCaber);
+        // lógica para preencher a tela sem distorcer
+        const scaleX = width / this.background.width;
+        const scaleY = height / this.background.height;
+        const scale = Math.max(scaleX, scaleY);
+        this.background.setScale(scale);
 
         this.tweens.add({
-        targets: this.background,
-        scaleX: this.background.scaleX * 1.06,
-        scaleY: this.background.scaleY * 1.06,
-        duration: 6000,
-        ease: 'Cubic.easeInOut'
-    });
+            targets: this.background,
+            scaleX: this.background.scaleX * 1.06,
+            scaleY: this.background.scaleY * 1.06,
+            duration: 6000,
+            ease: 'Cubic.easeInOut'
+        });
 
         this.agendarProximaCena(5000);
     }
@@ -184,7 +194,9 @@ como Niccolò Tartaglia e Scipione del Ferro.`;
             });
         }
 
-        this.cortinaSprite = this.add.sprite(640, 360, 'cortinasAnimadas').setDisplaySize(1282, 722);
+        const { width, height } = this.scale;
+        this.cortinaSprite = this.add.sprite(width / 2, height / 2, 'cortinasAnimadas');
+        this.cortinaSprite.setDisplaySize(width, height);
 
         this.cortinaSprite.play('fecharCortinas');
         this.cortinaSprite.on('animationcomplete', () => {
@@ -193,22 +205,23 @@ como Niccolò Tartaglia e Scipione del Ferro.`;
     }
 
     mostrarTitulo() {
-        this.titulo = this.add.text(640, 360, 'A FÓRMULA SECRETA', {
+        const { width, height } = this.scale;
+
+        this.titulo = this.add.text(width / 2, height / 2, 'A FÓRMULA SECRETA', {
             fontFamily: '"VT323"',
-            fontSize: '120px',
+            fontSize: '60px', 
             color: '#ffffffff',
             stroke: '#000000',
             strokeThickness: 8
         }).setOrigin(0.5).setAlpha(0);
 
-        this.tweens.add({
+        this.tweens.add({ 
             targets: this.titulo,
             alpha: 1,
-            y: 340,
+            y: height / 2, 
             duration: 2000,
             ease: 'Back.easeOut'
         });
-
     }
 
     
