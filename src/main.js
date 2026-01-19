@@ -7,8 +7,9 @@ const config = {
     title: 'A Fórmula Secreta',
     parent: 'game-container',
 
-    width: 640,
-    height: 360,
+    width: 320,
+    height: 180,
+    zoom: 3,
     
     backgroundColor: '#000000',
 
