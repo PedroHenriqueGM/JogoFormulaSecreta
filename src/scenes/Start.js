@@ -67,14 +67,21 @@ export class Start extends Phaser.Scene {
     createMenu() {
         const { width, height } = this.scale;
         this.uiGroup = this.add.group();
+
+        const title = this.add.sprite(width/2, height/2, 'start_texts', 0);
         
-        const title = this.add.sprite(width/2, 45, 'start_texts', 0);
-        const btnStart = this.add.sprite(width/2, 85, 'start_texts', 1).setInteractive({ cursor: 'pointer' });
-        const btnContinue = this.add.sprite(width/2, 110, 'start_texts', 2).setAlpha(0.5);
-        const btnOptions = this.add.sprite(width/2, 135, 'start_texts', 3).setAlpha(0.5);
+        const btnStart = this.add.sprite(width/2, height/2, 'start_texts', 1)
+            .setInteractive({ cursor: 'pointer' });
+        
+        const btnContinue = this.add.sprite(width/2, height/2, 'start_texts', 2)
+            .setAlpha(0.5);
+        
+        const btnOptions = this.add.sprite(width/2, height/2, 'start_texts', 3)
+            .setAlpha(0.5);
 
         this.uiGroup.addMultiple([title, btnStart, btnContinue, btnOptions]);
 
+        // Efeito de hover
         btnStart.on('pointerover', () => btnStart.setTint(0xdddddd));
         btnStart.on('pointerout', () => btnStart.clearTint());
         btnStart.once('pointerdown', () => this.startStory());
