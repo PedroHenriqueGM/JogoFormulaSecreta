@@ -1,161 +1,153 @@
+import { DialogueManager } from '../managers/DialogueManager.js';
+
 export class Start extends Phaser.Scene {
     constructor() {
         super('Start');
     }
 
     preload() {
-        // Estaticos (320x180)
-        this.load.image('fundo_cena1', 'assets/scene1.png');
+        // Estaticos
+        this.load.image('scene1_frame1', 'assets/scene1_1.png');
+        this.load.image('scene1_frame2', 'assets/scene1_2.png');
+        this.load.image('scene1bright', 'assets/scene1bright.png');
+     
+        // this.load.image('hedera', 'assets/hedera.png');
+
+        // Spritesheets para livro e cortina
+        this.load.spritesheet('curtains', 'assets/curtains.png', { frameWidth: 320, frameHeight: 180 });
+        this.load.spritesheet('start_texts', 'assets/start_texts.png', { frameWidth: 320, frameHeight: 180 });
         
-        // Spritesheets (320x180)
-        this.load.spritesheet('cortinasAnimadas', 'assets/curtains.png', { 
-            frameWidth: 320, frameHeight: 180 
-        });
-
-        this.load.spritesheet('tituloAnimado', 'assets/start_texts.png', { 
-            frameWidth: 320, frameHeight: 180 
-        });
-
-        // Assets antigos (Alta resolução)
+        // imagem fixa do zoom
         this.load.image('livroZoom', 'assets/livroZoom.png');
-        this.load.spritesheet('livroAnimado', 'assets/Livro.png', { 
-            frameWidth: 767, frameHeight: 511, spacing: 2
-        });
 
         // trilha sonora
-        this.load.audio('musicaIntro', 'assets/musica1.mp3');
+        this.load.audio('musica1', 'assets/musica1.mp3');
     }
 
     create() {
         const { width, height } = this.scale;
 
-        this.musica = this.sound.add('musicaIntro', { loop: true, volume: 0 });
-        this.musica.play();
+        this.dialogue = new DialogueManager(this);
 
-        // fade in da musica
-        this.tweens.add({ targets: this.musica, volume: 0.5, duration: 2000 });
-
-        this.criarAnimacoes();
-
-        // --- MENU INICIAL ---
-        this.fundoJogo = this.add.image(width/2, height/2, 'fundo_cena1');
-        this.cortinaSprite = this.add.sprite(width/2, height/2, 'cortinasAnimadas');
-
-        this.grupoInterface = this.add.group();
+        // inicio da trilha sonora
+        this.music = this.sound.add('musica1', { loop: true, volume: 0 });
+        this.music.play();
         
-        const titulo = this.add.sprite(width/2, height/2, 'tituloAnimado', 0);
-        const btnIniciar = this.add.sprite(width/2, height/2, 'tituloAnimado', 1).setInteractive({ cursor: 'pointer' });
-        const btnContinuar = this.add.sprite(width/2, height/2, 'tituloAnimado', 2).setAlpha(0.5);
-        const btnOpcoes = this.add.sprite(width/2, height/2, 'tituloAnimado', 3).setAlpha(0.5);
+        // aumenta o volume da musica com o tempo
+        this.tweens.add({ targets: this.music, volume: 0.5, duration: 2000 });
 
-        this.grupoInterface.addMultiple([titulo, btnIniciar, btnContinuar, btnOpcoes]);
+        this.createAnimations();
 
-        // Interatividade
-        btnIniciar.on('pointerover', () => btnIniciar.setTint(0xdddddd));
-        btnIniciar.on('pointerout', () => btnIniciar.clearTint());
-        
-        btnIniciar.once('pointerdown', () => {
-            this.iniciarHistoria();
-        });
+        // Primeira cena
+        this.bgNormal = this.add.sprite(width / 2, height / 2, 'scene1_frame1');
+        this.bgNormal.play('anim_candle'); 
+        this.bgBright = this.add.image(width / 2, height / 2, 'scene1bright');
+        this.curtains = this.add.sprite(width/2, height/2, 'curtains');
+
+        this.createMenu();
     }
 
-    criarAnimacoes() {
-        if (!this.anims.exists('abrir_cortina')) {
+    createAnimations() {
+        if (!this.anims.exists('anim_candle')) {
             this.anims.create({
-                key: 'abrir_cortina',
-                frames: this.anims.generateFrameNumbers('cortinasAnimadas', { start: 0, end: 3 }),
-                frameRate: 8, repeat: 0
+                key: 'anim_candle',
+                frames: [{ key: 'scene1_frame1' }, { key: 'scene1_frame2' }],
+                frameRate: 3, repeat: -1 
             });
         }
-        if (!this.anims.exists('animacaoLivro')) {
+        if (!this.anims.exists('anim_curtains_open')) {
             this.anims.create({
-                key: 'animacaoLivro',
-                frames: this.anims.generateFrameNumbers('livroAnimado', { start: 0, end: 3 }),
-                frameRate: 5, repeat: -1
+                key: 'anim_curtains_open',
+                frames: this.anims.generateFrameNumbers('curtains', { start: 0, end: 3 }),
+                frameRate: 4, repeat: 0
             });
         }
     }
 
-    iniciarHistoria() {
-        this.grupoInterface.setVisible(false);
-        this.cortinaSprite.play('abrir_cortina');
-
-        this.cortinaSprite.on('animationcomplete', () => {
-            this.cortinaSprite.setVisible(false);
-            
-            // Delay antes de mostrar o livro
-            this.time.delayedCall(2000, () => {
-                this.mostrarLivro();
-            });
-        });
-    }
-
-    mostrarLivro() {
+    createMenu() {
         const { width, height } = this.scale;
-
-        this.livroAtivo = this.add.sprite(width / 2, height / 2, 'livroAnimado');
-        this.livroAtivo.setDisplaySize(width, height); 
-        this.livroAtivo.play('animacaoLivro');
-
-        // avança para proxima cena (texto)
-        this.time.delayedCall(4000, () => this.mostrarTextoDoLivro());
-    }
-
-    mostrarTextoDoLivro() {
-        const { width, height } = this.scale;
+        this.uiGroup = this.add.group();
         
-        this.overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setAlpha(0);
+        const title = this.add.sprite(width/2, 45, 'start_texts', 0);
+        const btnStart = this.add.sprite(width/2, 85, 'start_texts', 1).setInteractive({ cursor: 'pointer' });
+        const btnContinue = this.add.sprite(width/2, 110, 'start_texts', 2).setAlpha(0.5);
+        const btnOptions = this.add.sprite(width/2, 135, 'start_texts', 3).setAlpha(0.5);
 
-        const conteudo = 
-        `"Ars Magna" — o tratado que
-        sistematiza equações cúbicas.
+        this.uiGroup.addMultiple([title, btnStart, btnContinue, btnOptions]);
 
-        Compilado por matemáticos
-        como Tartaglia e Scipione.`;
+        btnStart.on('pointerover', () => btnStart.setTint(0xdddddd));
+        btnStart.on('pointerout', () => btnStart.clearTint());
+        btnStart.once('pointerdown', () => this.startStory());
+    }
 
-       this.texto = this.add.text(width / 2, height / 2, conteudo, {
-            fontFamily: '"VT323"', fontSize: '16px', color: '#ffffff',
-            align: 'center', wordWrap: { width: width * 0.9 }
-        }).setOrigin(0.5).setAlpha(0);
+    // animaçaõ das cortinas
+    startStory() {
+        this.uiGroup.setVisible(false);
+        this.curtains.play('anim_curtains_open');
 
         this.tweens.add({
-            targets: [this.overlay, this.texto],
-            alpha: 1, duration: 1000
+            targets: this.bgBright,
+            alpha: 0, duration: 2000, ease: 'Sine.easeInOut'
         });
 
-        // avança para proxima cena (zoom)
-        this.time.delayedCall(6000, () => this.mostrarLivroZoom());
+        this.curtains.on('animationcomplete', () => {
+            this.curtains.setVisible(false);
+            
+            // avança para proxima cena em 4 segundos
+            this.dialogue.waitForClick(() => {
+                this.showBook();
+            }, 4000); 
+        });
     }
 
-    mostrarLivroZoom() {
+    // Animação do livro
+    showBook() {
+        const { width, height } = this.scale;
+        
+        this.bgNormal.stop(); 
+
+        this.closedBookView = this.add.image(width + 100, height, 'scene1_frame1') 
+            .setOrigin(1, 1) 
+            .setScale(2)
+            .setAlpha(0);
+
+        this.tweens.add({ targets: this.bgNormal, alpha: 0, duration: 2000 });
+        this.tweens.add({ targets: this.closedBookView, alpha: 1, duration: 2000 });
+        
+        // Texto do livro
+        this.dialogue.waitForClick(() => {
+            const text = `"Ars Magna" — o tratado que\nsistematiza equações cúbicas.\n\nCompilado por matemáticos\ncomo Tartaglia e Scipione.`;
+            
+            this.dialogue.showNarration(text, () => {
+                this.showBookZoom();
+            });
+        }, 2000);
+    }
+
+    // imagem fixa do zoom dos algoritmos
+    showBookZoom() {
         const { width, height } = this.scale;
 
-        // limpeza
-        if (this.fundoJogo) this.fundoJogo.destroy();
-        if (this.livroAtivo) this.livroAtivo.destroy();
-        if (this.overlay) this.overlay.destroy();
-        if (this.texto) this.texto.destroy();
+        // Limpa o sprite animado e o texto
+        if (this.closedBookView) this.closedBookView.destroy();
+        if (this.bgNormal) this.bgNormal.destroy();
+        if (this.bgBright) this.bgBright.destroy();
 
         this.imgZoom = this.add.image(width / 2, height / 2, 'livroZoom');
-        
-        // ajusta escala (cover)
-        const scaleX = width / this.imgZoom.width;
-        const scaleY = height / this.imgZoom.height;
-        const scale = Math.max(scaleX, scaleY);
+        const scale = Math.max(width / this.imgZoom.width, height / this.imgZoom.height);
         this.imgZoom.setScale(scale);
+        this.imgZoom.setAlpha(0);
 
-        // Animação de zoom in
         this.tweens.add({
             targets: this.imgZoom,
-            scaleX: this.imgZoom.scaleX * 1.1,
-            scaleY: this.imgZoom.scaleY * 1.1,
-            duration: 6000
+            alpha: 1,
+            duration: 1000 
         });
 
-        // fim da intro
-        this.time.delayedCall(5000, () => {
-            console.log("Fim da Intro. Carregar Level 1.");
-            // this.scene.start('Level_1');
-        });
+        // pode avançar tambem por clique se o usuario quiser tambem
+        this.dialogue.waitForClick(() => {
+             console.log("Start Level 1");
+             // this.scene.start('Level_1');
+        }, 3000);
     }
 }
