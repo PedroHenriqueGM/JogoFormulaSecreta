@@ -153,8 +153,11 @@ export class Start extends Phaser.Scene {
 
         // pode avançar tambem por clique se o usuario quiser tambem
         this.dialogue.waitForClick(() => {
-             console.log("Start Level 1");
-             // this.scene.start('Level_1');
+            console.log("Start Level 1");
+            this.cameras.main.fadeOut(1000, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.start('Level_1');
+            });
         }, 3000);
     }
 }

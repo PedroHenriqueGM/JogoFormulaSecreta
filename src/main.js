@@ -1,5 +1,5 @@
 import { Start } from './scenes/Start.js';
-// import { Level_1 } from './scenes/Level_1.js'; 
+import { Level_1 } from './scenes/Level_1.js'; 
 // import { UI_Map } from './scenes/UI_Map.js';
 
 const config = {
@@ -30,8 +30,8 @@ const config = {
 
   
     scene: [
-        Start
-        // Level_1, 
+        Start,
+        Level_1
         // UI_Map
     ],
 
