@@ -6,57 +6,66 @@ export class DialogueManager {
 
     createUI() {
         const { width, height } = this.scene.scale;
-        
-        this.overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
-            .setAlpha(0).setDepth(100);
 
-        this.mainText = this.scene.add.text(width / 2, height / 2, '', {
-            fontFamily: '"VT323"', fontSize: '16px', color: '#ffffff',
-            align: 'center', wordWrap: { width: width * 0.9 }
-        }).setOrigin(0.5).setAlpha(0).setDepth(101);
+        // Fundo
+        this.box = this.scene.add.rectangle(0, 0, 0, 0, 0x000000, 0.9)
+            .setScrollFactor(0).setDepth(100).setAlpha(0);
 
-        this.btnNext = this.scene.add.text(width - 20, height - 10, 'CONTINUAR ▼', {
-            fontFamily: '"VT323"', fontSize: '14px', color: '#ffffff'
-        }).setOrigin(1, 1).setAlpha(1).setDepth(102)
-          .setVisible(false);
+        // Borda
+        this.border = this.scene.add.rectangle(0, 0, 0, 0)
+            .setScrollFactor(0).setDepth(101).setStrokeStyle(1, 0xffffff).setAlpha(0);
 
-        // Pisca-pisca
+        // Texto
+        this.mainText = this.scene.add.bitmapText(0, 0, 'pixelFont', '', 8)
+            .setOrigin(0.5).setCenterAlign()
+            .setScrollFactor(0).setDepth(102).setAlpha(0);
+        this.mainText.maxWidth = width - 40; 
+
+        // Indicador "Continuar"
+        this.btnNext = this.scene.add.bitmapText(width - 10, height - 10, 'alkhemikal', '▼', 10)
+            .setOrigin(1, 1).setScrollFactor(0).setDepth(200).setAlpha(0);
+
+        // Animação do indicador
         this.scene.tweens.add({
-            targets: this.btnNext,
-            alpha: { from: 0.5, to: 1 },
-            yoyo: true, repeat: -1, duration: 800,
-            paused: false
+            targets: this.btnNext, alpha: { from: 0.5, to: 1 }, yoyo: true, repeat: -1, duration: 600
         });
     }
 
     showNarration(content, callback) {
+        const { width, height } = this.scene.scale;
+        
+        // Configura texto e caixa
         this.mainText.setText(content);
+        const bounds = this.mainText.getTextBounds().global;
+        const boxHeight = Math.max(40, bounds.height + 20); 
+        const boxWidth = width - 20;
+        const centerX = width / 2;
+        const centerY = height / 2;
 
+        this.box.setPosition(centerX, centerY).setSize(boxWidth, boxHeight);
+        this.border.setPosition(centerX, centerY).setSize(boxWidth, boxHeight);
+        this.mainText.setPosition(centerX, centerY);
+
+        // Animação de Entrada
         this.scene.tweens.add({
-            targets: [this.overlay, this.mainText],
-            alpha: 1, duration: 1000,
+            targets: [this.box, this.border, this.mainText],
+            alpha: 1, duration: 500,
             onComplete: () => {
-                // Ao ler texto, deixamos um delay mínimo (500ms) só pra evitar duplo clique acidental
                 this.waitForClick(() => {
                     this.finishDialogue(callback);
-                }, 0); 
+                }, 1000); 
             }
         });
     }
 
-    enableButton() {
-        this.btnNext.setVisible(true);
-    }
-
-    hideButton() {
-        this.btnNext.setVisible(false);
+    showNextButton() {
+        this.btnNext.setVisible(true).setAlpha(1);
     }
 
     finishDialogue(callback) {
-        this.hideButton();
-
+        this.btnNext.setAlpha(0);
         this.scene.tweens.add({
-            targets: [this.overlay, this.mainText],
+            targets: [this.box, this.border, this.mainText],
             alpha: 0, duration: 500,
             onComplete: () => {
                 if (callback) callback(); 
@@ -64,50 +73,44 @@ export class DialogueManager {
         });
     }
 
-    // --- AQUI ESTÁ A LÓGICA DO SKIP ---
     waitForClick(callback, visualDelay = 0) {
-        
-        // 1. TIMER VISUAL (Botão "Continuar")
-        // Ele obedece o tempo longo (ex: 4s) que você passou no Start.js
+        // Timer para mostrar o "▼"
         const timerVisual = this.scene.time.delayedCall(visualDelay, () => {
-             this.enableButton();
+             this.showNextButton();
         });
 
-        // 2. TIMER DE INPUT (Bloqueio de segurança)
-        // Se o delay visual for longo (>1s), travamos o clique por 1s (seu pedido).
-        // Se for curto (ex: lendo texto), travamos só 200ms para limpar o clique anterior.
-        const inputBlockTime = (visualDelay > 1000) ? 1000 : 200;
-
+        // Função que ativa os ouvintes de input
         const activateInput = () => {
             let jaAvançou = false;
             
+            // Função única que roda ao avançar
             const avancar = () => {
                 if (jaAvançou) return;
                 jaAvançou = true;
 
-                // MAGIA: Se a pessoa clicou ANTES do botão aparecer...
-                // Cancelamos o timer visual! Assim o botão nunca vai aparecer na próxima cena.
-                timerVisual.remove();
-
-                // Limpeza
+                timerVisual.remove(); // Cancela o timer visual se avançar rápido
+                
+                //Remove todos os ouvintes para não bugar o próximo diálogo
                 this.scene.input.off('pointerdown', avancar);
                 if (this.scene.input.keyboard) {
-                    this.scene.input.keyboard.off('keydown', avancar);
+                    this.scene.input.keyboard.off('keydown-SPACE', avancar);
+                    this.scene.input.keyboard.off('keydown-ENTER', avancar);
                 }
-
-                this.hideButton(); // Garante que esconde, caso já estivesse visível
 
                 if (callback) callback();
             };
 
-            // Ativa os ouvintes (Mouse + Teclado)
+            // Registra Click
             this.scene.input.once('pointerdown', avancar);
+            
+            // Registra Espaço e Enter (específicos)
             if (this.scene.input.keyboard) {
-                this.scene.input.keyboard.once('keydown', avancar);
+                this.scene.input.keyboard.once('keydown-SPACE', avancar);
+                this.scene.input.keyboard.once('keydown-ENTER', avancar);
             }
         };
 
-        // Inicia o timer para liberar o clique
-        this.scene.time.delayedCall(inputBlockTime, activateInput);
+        // Pequeno delay (200ms) antes de aceitar input para evitar "pulo duplo" acidental
+        this.scene.time.delayedCall(200, activateInput);
     }
 }

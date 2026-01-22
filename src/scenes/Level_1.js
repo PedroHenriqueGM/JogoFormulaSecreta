@@ -1,3 +1,4 @@
+import { DialogueManager } from '../managers/DialogueManager.js';
 export class Level_1 extends Phaser.Scene {
 
     constructor() {
@@ -5,7 +6,7 @@ export class Level_1 extends Phaser.Scene {
     }
 
     preload() {
-        // carregando mapa tilemap em formato JSON
+        // carregando mapa tilemap
         this.load.image('tiles', 'assets/mapas/Set 1.png');
         this.load.tilemapTiledJSON('level_1_map', 'assets/mapas/map.json');
 
@@ -17,6 +18,8 @@ export class Level_1 extends Phaser.Scene {
         const { width, height } = this.scale;
         const spawnX = 55;
         const spawnY = 30;
+
+        this.dialogue = new DialogueManager(this);
 
         this.canMove = false;
 
@@ -108,52 +111,19 @@ export class Level_1 extends Phaser.Scene {
         }
     }
 
-    showIntroText() {
+   showIntroText() {
         const lines = [
             "> Brescia, Itália, 1512.",
             "> Um menino corre entre chamas e espadas.",
             "> Seu nome é Niccolò Fontana.",
             "> O mundo logo o chamará de Tartaglia."
-        ]
+        ];
+        const text = lines.join('\n');
 
-        const text = lines.join('\n');;
-
-        const width = this.scale.width;
-        const height = this.scale.height;
-
-        const boxHeight = 80;
-        const boxWidth = width - 40;
-        const boxY = height - 97;
-
-        // fundo da caixa
-        const box = this.add.rectangle(width / 2, boxY, boxWidth, boxHeight, 0x000000, 0.8).setScrollFactor(0).setDepth(101);
-        const border = this.add.rectangle(width / 2, boxY, boxWidth, boxHeight).setScrollFactor(0).setDepth(102);
-        border.setStrokeStyle(2, 0xffffff);
-
-        // texto
-        const message = this.add.text(40, height - 130, '', {
-            fontFamily: 'serif', fontSize: '12px', color: '#ffffff', wordWrap: { width: width - 75 }
-        }).setScrollFactor(0).setDepth(102);
-
-        // efeito de máquina de escrever
-        let i = 0;
-        this.time.addEvent({
-            delay: 30,
-            repeat: text.length - 1,
-            callback: () => {
-                message.text += text[i];
-                i++;
-            }
-        });
-
-        // espera clique para remover o texto
-        this.time.delayedCall(500, () => {
-             this.input.once('pointerdown', () => {
-                box.destroy();
-                border.destroy();
-                message.destroy();
-                this.canMove = true;
-            });
+        // usa o gerenciador de diálogos para mostrar o texto
+        this.dialogue.showNarration(text, () => {
+            // Quando terminar de ler e clicar:
+            this.canMove = true;
         });
     }
 }

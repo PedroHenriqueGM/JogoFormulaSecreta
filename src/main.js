@@ -17,7 +17,7 @@ const config = {
     render: {
         antialias: false,
         pixelArt: true,
-        roundPixels: false
+        roundPixels: true 
     },
     
     physics: {
@@ -27,7 +27,6 @@ const config = {
             debug: false
         }
     },
-
   
     scene: [
         Start,
@@ -39,6 +38,6 @@ const config = {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
-}
+};
 
 new Phaser.Game(config);

@@ -24,6 +24,10 @@ export class Start extends Phaser.Scene {
 
         // Áudio
         this.load.audio('musica1', 'assets/musica1.mp3');
+
+        //Texto
+        this.load.bitmapFont('pixelFont', 'assets/fonts/pixelFont/pixelFont.png', 'assets/fonts/pixelFont/pixelFont.xml');
+        this.load.bitmapFont('alkhemikal', 'assets/fonts/alkhemikal/alkhemikal.png', 'assets/fonts/alkhemikal/alkhemikal.xml');
     }
 
     create() {
