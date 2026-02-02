@@ -12,12 +12,28 @@ export class Level_1 extends Phaser.Scene {
 
         // carregando sprite do player
         this.load.spritesheet('player', 'assets/player/tartaglia_crianca.png', {frameWidth: 32, frameHeight: 32});
+        
+        // audio
+        this.load.audio('level1', 'assets/audio/level1.wav');
+        this.load.audio('voice_a', 'assets/audio/voices/voice1/voice_a.wav');
+        this.load.audio('voice_e', 'assets/audio/voices/voice1/voice_e.wav');
+        this.load.audio('voice_i', 'assets/audio/voices/voice1/voice_i.wav');
+        this.load.audio('voice_o', 'assets/audio/voices/voice1/voice_o.wav');
+        this.load.audio('voice_u', 'assets/audio/voices/voice1/voice_u.wav');
     }
 
     create() {
         const { width, height } = this.scale;
         const spawnX = 55;
         const spawnY = 30;
+
+        this.bgMusic = this.sound.add('level1', { loop: true, volume: 0 });
+        this.bgMusic.play();
+        this.tweens.add({
+            targets: this.bgMusic,
+            volume: 0.5,
+            duration: 3000
+        });
 
         this.dialogue = new DialogueManager(this);
 
@@ -121,8 +137,7 @@ export class Level_1 extends Phaser.Scene {
         const text = lines.join('\n');
 
         // usa o gerenciador de diálogos para mostrar o texto
-        this.dialogue.showNarration(text, () => {
-            // Quando terminar de ler e clicar:
+        this.dialogue.showDialogue(text, null, null, () => {
             this.canMove = true;
         });
     }

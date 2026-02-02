@@ -2,115 +2,214 @@ export class DialogueManager {
     constructor(scene) {
         this.scene = scene;
         this.createUI();
+        
+        // velocidade da digitacao (menor = mais rapido)
+        this.typeSpeed = 45; 
     }
 
     createUI() {
         const { width, height } = this.scene.scale;
+        
+        // altura da linha compacta para fonte 16px
+        const fontData = this.scene.cache.bitmapFont.get('pixelFont');
+        if (fontData) fontData.data.lineHeight = 12; 
 
-        // Fundo
-        this.box = this.scene.add.rectangle(0, 0, 0, 0, 0x000000, 0.9)
-            .setScrollFactor(0).setDepth(100).setAlpha(0);
+        // margem inferior de 10px
+        const dialogY = height - 35; 
 
-        // Borda
-        this.border = this.scene.add.rectangle(0, 0, 0, 0)
-            .setScrollFactor(0).setDepth(101).setStrokeStyle(1, 0xffffff).setAlpha(0);
+        //NARRADOR
+        this.narratorContainer = this.scene.add.container(width / 2, dialogY);
+        this.narratorContainer.setDepth(100).setAlpha(0).setVisible(false).setScrollFactor(0); 
 
-        // Texto
-        this.mainText = this.scene.add.bitmapText(0, 0, 'pixelFont', '', 8)
-            .setOrigin(0.5).setCenterAlign()
-            .setScrollFactor(0).setDepth(102).setAlpha(0);
-        this.mainText.maxWidth = width - 40; 
+        this.narratorBox = this.scene.add.image(0, 0, 'ui_box_narrator');
+        
+        // alinha o texto ao topo
+        this.narratorText = this.scene.add.bitmapText(-135, -20, 'pixelFont', '', 16)
+            .setOrigin(0, 0)
+            .setMaxWidth(270); 
 
-        // Indicador "Continuar"
-        this.btnNext = this.scene.add.bitmapText(width - 10, height - 10, 'alkhemikal', '▼', 10)
-            .setOrigin(1, 1).setScrollFactor(0).setDepth(200).setAlpha(0);
+        this.narratorContainer.add([this.narratorBox, this.narratorText]);
 
-        // Animação do indicador
-        this.scene.tweens.add({
-            targets: this.btnNext, alpha: { from: 0.5, to: 1 }, yoyo: true, repeat: -1, duration: 600
-        });
+        //PERSONAGEM
+        this.charContainer = this.scene.add.container(width / 2, dialogY);
+        this.charContainer.setDepth(100).setAlpha(0).setVisible(false).setScrollFactor(0); 
+
+        this.charBox = this.scene.add.image(0, 0, 'ui_box_character');
+        this.portraitImage = this.scene.add.image(-130, 0, 'portrait_placeholder'); 
+
+        this.nameText = this.scene.add.bitmapText(-130, -35, 'pixelFont', '', 8).setOrigin(0.5);
+        
+        // alinha o texto ao TOPO
+        this.charText = this.scene.add.bitmapText(-90, -20, 'pixelFont', '', 16)
+            .setOrigin(0, 0)
+            .setMaxWidth(220);
+
+        this.charContainer.add([this.charBox, this.portraitImage, this.nameText, this.charText]);
+
+        // botao v
+        this.btnNext = this.scene.add.bitmapText(0, 0, 'pixelFont', 'V', 16)
+            .setOrigin(1, 1) 
+            .setDepth(200).setAlpha(0).setVisible(false).setScrollFactor(0);
     }
 
-    showNarration(content, callback) {
-        const { width, height } = this.scene.scale;
-        
-        // Configura texto e caixa
-        this.mainText.setText(content);
-        const bounds = this.mainText.getTextBounds().global;
-        const boxHeight = Math.max(40, bounds.height + 20); 
-        const boxWidth = width - 20;
-        const centerX = width / 2;
-        const centerY = height / 2;
+    showDialogue(content, characterName = null, portraitKey = null, callback) {
+        const isNarrator = !characterName;
+        let targetContainer, targetTextObj;
 
-        this.box.setPosition(centerX, centerY).setSize(boxWidth, boxHeight);
-        this.border.setPosition(centerX, centerY).setSize(boxWidth, boxHeight);
-        this.mainText.setPosition(centerX, centerY);
+        if (isNarrator) {
+            this.charContainer.setVisible(false);
+            this.narratorContainer.setVisible(true);
+            targetContainer = this.narratorContainer;
+            targetTextObj = this.narratorText;
+        } else {
+            this.narratorContainer.setVisible(false);
+            this.charContainer.setVisible(true);
+            this.nameText.setText(characterName);
+            if (portraitKey) this.portraitImage.setTexture(portraitKey);
+            targetContainer = this.charContainer;
+            targetTextObj = this.charText;
+        }
 
-        // Animação de Entrada
+        // limpa o texto antes de começar
+        targetTextObj.setText('');
+
         this.scene.tweens.add({
-            targets: [this.box, this.border, this.mainText],
-            alpha: 1, duration: 500,
+            targets: targetContainer,
+            alpha: 1,
+            duration: 300,
             onComplete: () => {
-                this.waitForClick(() => {
-                    this.finishDialogue(callback);
-                }, 1000); 
+                this.typewriteText(targetTextObj, content, callback);
             }
         });
     }
 
+    typewriteText(targetText, fullText, callback) {
+        if (this.typingTimer) this.typingTimer.remove();
+
+        let i = 0;
+        
+        const nextChar = () => {
+            const char = fullText[i];
+            targetText.text += char;
+            
+            // TOCA O SOM DAS VOGAIS
+            this.playVoiceForChar(char);
+
+            i++;
+
+            if (i >= fullText.length) {
+                this.waitForClick(callback);
+                return;
+            }
+
+            let delay = this.typeSpeed;
+            if (char === '\n') delay = 400; 
+            else if ('.!?,'.includes(char)) delay = 150;
+
+            this.typingTimer = this.scene.time.delayedCall(delay, nextChar);
+        };
+
+        nextChar();
+    }
+
+    playVoiceForChar(char) {
+        if (char === ' ') return; // Retorna se for espaço em branco
+
+        const lower = char.toLowerCase();
+        let soundKey = null;
+
+        // Detecta as vogais e associa ao som correspondente
+        if ('aáàãâ'.includes(lower)) soundKey = 'voice_a';
+        else if ('eéê'.includes(lower)) soundKey = 'voice_e';
+        else if ('ií'.includes(lower)) soundKey = 'voice_i';
+        else if ('oóõô'.includes(lower)) soundKey = 'voice_o';
+        else if ('uúü'.includes(lower)) soundKey = 'voice_u';
+
+        if (soundKey) {
+            // Reproduz o som com sobreposição habilitada e pequenas variações
+            this.scene.sound.play(soundKey, {
+                overlap: true, // Permite tocar múltiplas instâncias do mesmo som
+                volume: 0.5,
+                detune: Phaser.Math.Between(-50, 50) // Pequena variação no tom para mais naturalidade
+            });
+        }
+    }
+
     showNextButton() {
-        this.btnNext.setVisible(true).setAlpha(1);
+        const isNarrator = this.narratorContainer.visible;
+        const activeContainer = isNarrator ? this.narratorContainer : this.charContainer;
+        
+        const xOffset = 140; 
+        const yOffset = 20; 
+
+        this.btnNext.setPosition(activeContainer.x + xOffset, activeContainer.y + yOffset);
+        this.btnNext.setVisible(true).setAlpha(0);
+
+        this.scene.tweens.add({
+            targets: this.btnNext,
+            alpha: 1,       
+            duration: 500,
+            onComplete: () => this.startBouncing()
+        });
+    }
+
+    startBouncing() {
+        this.scene.tweens.killTweensOf(this.btnNext);
+        this.scene.tweens.add({
+            targets: this.btnNext,
+            y: '-=3',
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
     }
 
     finishDialogue(callback) {
-        this.btnNext.setAlpha(0);
+        this.scene.tweens.killTweensOf(this.btnNext);
+        this.btnNext.setVisible(false);
+
         this.scene.tweens.add({
-            targets: [this.box, this.border, this.mainText],
-            alpha: 0, duration: 500,
+            targets: [this.narratorContainer, this.charContainer],
+            alpha: 0, 
+            duration: 300,
             onComplete: () => {
                 if (callback) callback(); 
             }
         });
     }
 
-    waitForClick(callback, visualDelay = 0) {
-        // Timer para mostrar o "▼"
-        const timerVisual = this.scene.time.delayedCall(visualDelay, () => {
-             this.showNextButton();
-        });
+    waitForClick(callback) {
+        this.timerVisual = this.scene.time.delayedCall(500, () => this.showNextButton());
 
-        // Função que ativa os ouvintes de input
         const activateInput = () => {
             let jaAvançou = false;
             
-            // Função única que roda ao avançar
             const avancar = () => {
                 if (jaAvançou) return;
                 jaAvançou = true;
 
-                timerVisual.remove(); // Cancela o timer visual se avançar rápido
+                if (this.timerVisual) this.timerVisual.remove();
                 
-                //Remove todos os ouvintes para não bugar o próximo diálogo
+                this.scene.tweens.killTweensOf(this.btnNext);
+                this.btnNext.setVisible(false); 
+
                 this.scene.input.off('pointerdown', avancar);
                 if (this.scene.input.keyboard) {
                     this.scene.input.keyboard.off('keydown-SPACE', avancar);
                     this.scene.input.keyboard.off('keydown-ENTER', avancar);
                 }
 
-                if (callback) callback();
+                this.finishDialogue(callback);
             };
 
-            // Registra Click
             this.scene.input.once('pointerdown', avancar);
-            
-            // Registra Espaço e Enter (específicos)
             if (this.scene.input.keyboard) {
                 this.scene.input.keyboard.once('keydown-SPACE', avancar);
                 this.scene.input.keyboard.once('keydown-ENTER', avancar);
             }
         };
 
-        // Pequeno delay (200ms) antes de aceitar input para evitar "pulo duplo" acidental
-        this.scene.time.delayedCall(200, activateInput);
+        activateInput();
     }
 }
