@@ -93,8 +93,23 @@ export class EffectManager {
 
     spawnConnectorFire(x, y) {
         const scale = Phaser.Math.FloatBetween(2.0, 2.8);
-        const fireBase = this.scene.add.sprite(x, y, 'flare').setScale(scale).setDepth(3.3).play('anim_flare');
-        const fireGlow = this.scene.add.sprite(x, y, 'flare').setScale(scale * 1.4).setDepth(3.2).setAlpha(0.25).setTint(0xFFA500).setBlendMode(Phaser.BlendModes.ADD).play('anim_flare');
+
+        const shouldFlip = Math.random() > 0.5; 
+
+        const fireBase = this.scene.add.sprite(x, y, 'flare')
+            .setScale(scale)
+            .setDepth(3.3)
+            .setFlipX(shouldFlip)
+            .play('anim_flare');
+
+        const fireGlow = this.scene.add.sprite(x, y, 'flare')
+            .setScale(scale * 1.4)
+            .setDepth(3.2)
+            .setAlpha(0.25)
+            .setTint(0xFFA500)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setFlipX(shouldFlip)
+            .play('anim_flare');
         
         this.scene.tweens.add({
             targets: [fireBase, fireGlow],
@@ -126,14 +141,23 @@ export class EffectManager {
         const fireX = x + randomOffsetX;
         const fireY = y + randomOffsetY;
 
+        const shouldFlip = Math.random() > 0.5; 
+
         const fireBase = this.scene.add.sprite(fireX, fireY, 'flare')
-            .setScale(baseScale).setDepth(3.5).play('anim_flare');
+            .setScale(baseScale)
+            .setDepth(3.5)
+            .setFlipX(shouldFlip)
+            .play('anim_flare');
         
         const fireGlow = this.scene.add.sprite(fireX, fireY, 'flare')
-            .setScale(baseScale * 1.5).setDepth(3.4)
-            .setAlpha(0.3).setTint(0xFFA500)
-            .setBlendMode(Phaser.BlendModes.ADD).play('anim_flare');
-        
+            .setScale(baseScale * 1.5)
+            .setDepth(3.4)
+            .setAlpha(0.3)
+            .setTint(0xFFA500)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setFlipX(shouldFlip) 
+            .play('anim_flare');
+            
         const embers = this.scene.add.particles(fireX, fireY, 'flare', {
             speed: { min: 40, max: 80 }, angle: { min: 250, max: 290 }, 
             scale: { start: 0.4, end: 0 }, alpha: { start: 0.6, end: 0 },

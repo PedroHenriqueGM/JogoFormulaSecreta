@@ -68,6 +68,15 @@ export class Start extends Phaser.Scene {
         if (!this.anims.exists('anim_curtains_open')) {
             this.anims.create({ key: 'anim_curtains_open', frames: this.anims.generateFrameNumbers('curtains', { start: 0, end: 3 }), frameRate: 4, repeat: 0 });
         }
+        if (!this.anims.exists('anim_flare')) {
+            this.anims.create({
+                key: 'anim_flare',
+                frames: this.anims.generateFrameNumbers('flare', { start: 0, end: 1 }), // Como você tem 2 frames
+                frameRate: 8,
+                repeat: -1,  
+                yoyo: true  
+            });
+        }
     }
 
     createMenu() {
