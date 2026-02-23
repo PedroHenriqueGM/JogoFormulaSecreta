@@ -1,4 +1,5 @@
 import { DialogueManager } from '../managers/DialogueManager.js';
+import { Guard } from '../entities/Guard.js';
 export class Level_1 extends Phaser.Scene {
 
     constructor() {
@@ -45,6 +46,17 @@ export class Level_1 extends Phaser.Scene {
         const ground = map.createLayer('chao', tileset, 0, 0);
         const walls = map.createLayer('paredes', tileset, 0, 0);
 
+        this.wallsLayer = walls;
+
+        this.guards = [];
+
+        const guard1 = new Guard(this, 200, 100, 'player');
+
+        this.guards.push(guard1);
+
+        // adicionando guarda à física
+        this.physics.add.collider(guard1, walls);
+
         // colocando o player no mapa
         this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
 
@@ -70,6 +82,9 @@ export class Level_1 extends Phaser.Scene {
 
         // animações do player
         this.createAnimations();
+
+        // iniciando a cutscene
+        this.iniciarCutscene();
     }
 
     // Chamado pela cena Start
@@ -89,6 +104,16 @@ export class Level_1 extends Phaser.Scene {
     }
 
     update() {
+
+        // Atualiza os guardas SEMPRE
+        this.guards.forEach(guard => {
+            const seen = guard.update(this.player);
+            if (seen) {
+                this.onPlayerCaught();
+            }
+        });
+        
+        // Se o player não pod se mover, só trava ele
         if (!this.canMove) {
             this.player.setVelocity(0);
             if (this.player.anims.isPlaying) this.player.anims.stop(); 
@@ -125,9 +150,18 @@ export class Level_1 extends Phaser.Scene {
             this.player.anims.stop();
             this.player.setFrame(0);
         }
+
+        // atualizando guardas
+        this.guards.forEach(guard => {
+            const seen = guard.update(this.player);
+            if (seen) {
+                this.onPlayerCaught();
+            }
+        });
+
     }
 
-   showIntroText() {
+    showIntroText() {
         const lines = [
             "> Brescia, Itália, 1512.",
             "> Um menino corre entre chamas e espadas.",
@@ -141,4 +175,31 @@ export class Level_1 extends Phaser.Scene {
             this.canMove = true;
         });
     }
+
+    onPlayerCaught() {
+
+        if (!this.canMove) return; // já foi pego
+
+        this.canMove = false;
+        this.player.setVelocity(0);
+        this.player.setTint(0xff0000);
+
+        this.guards.forEach(g => {
+            g.body.setVelocity(0);
+            g.visionGraphics.destroy();
+            g.destroy();
+        })
+
+        // Fallback em caso de erro no diálogo
+        const restartTimeout = this.time.delayedCall(5000, () => {
+            console.warn("Timeout: reiniciando cena após ser pego");
+            this.scene.restart();
+        });
+
+        this.dialogue.showNarration("> Você foi visto pelos guardas!", () => {
+            restartTimeout.remove();
+            this.scene.restart();
+        })
+    }
+
 }
