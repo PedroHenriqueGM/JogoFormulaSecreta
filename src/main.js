@@ -7,7 +7,7 @@ const config = {
     parent: 'game-container',
     width: 320,
     height: 180,
-    zoom: 3,
+    zoom: 4,
     backgroundColor: '#000000',
     pixelArt: true,
     render: {

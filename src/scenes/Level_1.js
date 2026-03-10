@@ -1,5 +1,8 @@
 import { DialogueManager } from '../managers/DialogueManager.js';
 import { Guard } from '../entities/Guard.js';
+import { Player } from '../entities/Player.js';
+import { AnimationManager } from '../managers/AnimationManager.js';
+
 export class Level_1 extends Phaser.Scene {
 
     constructor() {
@@ -11,8 +14,9 @@ export class Level_1 extends Phaser.Scene {
         this.load.image('tiles', 'assets/mapas/Set 1.png');
         this.load.tilemapTiledJSON('level_1_map', 'assets/mapas/map.json');
 
-        // carregando sprite do player
-        this.load.spritesheet('player', 'assets/player/tartaglia_crianca.png', {frameWidth: 32, frameHeight: 32});
+        // carregando sprites
+        this.load.spritesheet('young_niccolo', 'assets/entities/young_niccolo.png', {frameWidth: 32, frameHeight: 32});
+        this.load.spritesheet('guard', 'assets/entities/guard.png', {frameWidth: 32, frameHeight: 32});
         
         // audio
         this.load.audio('level1', 'assets/audio/level1.wav');
@@ -23,21 +27,14 @@ export class Level_1 extends Phaser.Scene {
         this.load.audio('voice_u', 'assets/audio/voices/voice1/voice_u.wav');
     }
 
-    create() {
+    create(data) {
         const { width, height } = this.scale;
         const spawnX = 55;
         const spawnY = 30;
 
         this.bgMusic = this.sound.add('level1', { loop: true, volume: 0 });
-        this.bgMusic.play();
-        this.tweens.add({
-            targets: this.bgMusic,
-            volume: 0.5,
-            duration: 3000
-        });
 
         this.dialogue = new DialogueManager(this);
-
         this.canMove = false;
 
         const map = this.make.tilemap({key: 'level_1_map' });
@@ -47,118 +44,60 @@ export class Level_1 extends Phaser.Scene {
         const walls = map.createLayer('paredes', tileset, 0, 0);
 
         this.wallsLayer = walls;
-
-        this.guards = [];
-
-        const guard1 = new Guard(this, 200, 100, 'player');
-
-        this.guards.push(guard1);
-
-        // adicionando guarda à física
-        this.physics.add.collider(guard1, walls);
-
-        // colocando o player no mapa
-        this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
-
-        // ajustes básicos
-        this.player.body.setSize(18, 12);
-        this.player.body.setOffset(7,20);
-        this.player.setDepth(10); // pra ficar na frente de tudo
-
-        // colidindo com paredes
         walls.setCollisionByProperty({ collider: true });
+
+        // player
+        this.player = new Player(this, spawnX, spawnY, 'young_niccolo');
         this.physics.add.collider(this.player, walls);
 
+        // grupo e guardas
+        this.guardsGroup = this.add.group({
+            runChildUpdate: true
+        });
+
+        const guard1 = new Guard(this, 200, 100, 'guard', this.player);
+        this.physics.add.collider(guard1, walls);
+        this.guardsGroup.add(guard1);
+
+        // escutar o seen para disparar o game over
+        this.events.on('seen', this.onPlayerCaught, this);
+
+        // animações
+        AnimationManager.createCharacterAnims(this, 'young_niccolo');
+        AnimationManager.createCharacterAnims(this, 'guard');
+
         // câmera seguindo o player
-        this.cameras.main.startFollow(this.player);
+        this.cameras.main.startFollow(this.player, true);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
-        // controles do player
+        // controles do teclado
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys('W,A,S,D');
 
-        // debug das colisões
-        // this.physics.world.createDebugGraphic();
-
-        // animações do player
-        this.createAnimations();
-
-        // iniciando a cutscene
-        this.iniciarCutscene();
+        // se for restart da fase, recomeça sem a cutscene e libera o boneco
+        if (data && data.isRestart) {
+            this.bgMusic.play();
+            this.bgMusic.setVolume(0.5);
+            this.canMove = true;
+        }
     }
 
-    // Chamado pela cena Start
     iniciarCutscene() {
-        this.showIntroText();
-    }
+        this.bgMusic.play();
+        this.tweens.add({
+            targets: this.bgMusic,
+            volume: 0.5,
+            duration: 4000 
+        });
 
-    createAnimations() {
-        this.anims.create({ key: 'walk_up_left', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_up_right', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_down_left', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_down_right', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_down', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_left', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_right', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'walk_up', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
+        this.time.delayedCall(2000, () => {  
+            this.showIntroText();
+        });
     }
 
     update() {
-
-        // Atualiza os guardas SEMPRE
-        this.guards.forEach(guard => {
-            const seen = guard.update(this.player);
-            if (seen) {
-                this.onPlayerCaught();
-            }
-        });
-        
-        // Se o player não pod se mover, só trava ele
-        if (!this.canMove) {
-            this.player.setVelocity(0);
-            if (this.player.anims.isPlaying) this.player.anims.stop(); 
-            return;
-        }
-
-        const speed = 100;
-        this.player.setVelocity(0);
-
-        // movimentação com setas ou WASD
-        let left = this.cursors.left.isDown || this.keys.A.isDown;
-        let right = this.cursors.right.isDown || this.keys.D.isDown;
-        let up = this.cursors.up.isDown || this.keys.W.isDown;
-        let down = this.cursors.down.isDown || this.keys.S.isDown;
-
-        if (left) this.player.setVelocityX(-speed);
-        else if (right) this.player.setVelocityX(speed);
-
-        if (up) this.player.setVelocityY(-speed);
-        else if (down) this.player.setVelocityY(speed);
-
-        // ANIMAÇÃO - DIAGONAIS
-        if (left && up) this.player.anims.play('walk_up_left', true);
-        else if (right && up) this.player.anims.play('walk_up_right', true);
-        else if (left && down) this.player.anims.play('walk_down_left', true);
-        else if (right && down) this.player.anims.play('walk_down_right', true);
-        // DIREÇÕES SIMPLES
-        else if (up) this.player.anims.play('walk_up', true);
-        else if (down) this.player.anims.play('walk_down', true);
-        else if (left) this.player.anims.play('walk_left', true);
-        else if (right) this.player.anims.play('walk_right', true);
-        // se não estiver se movendo, para a animação
-        else {
-            this.player.anims.stop();
-            this.player.setFrame(0);
-        }
-
-        // atualizando guardas
-        this.guards.forEach(guard => {
-            const seen = guard.update(this.player);
-            if (seen) {
-                this.onPlayerCaught();
-            }
-        });
-
+        if (!this.canMove) return;
+        this.player.update(this.cursors, this.keys, this.canMove);
     }
 
     showIntroText() {
@@ -170,36 +109,36 @@ export class Level_1 extends Phaser.Scene {
         ];
         const text = lines.join('\n');
 
-        // usa o gerenciador de diálogos para mostrar o texto
         this.dialogue.showDialogue(text, null, null, () => {
             this.canMove = true;
         });
     }
 
     onPlayerCaught() {
-
-        if (!this.canMove) return; // já foi pego
+         if (!this.canMove) return; // evita rodar duas vezes se dois guardas virem ao mesmo tempo
 
         this.canMove = false;
-        this.player.setVelocity(0);
         this.player.setTint(0xff0000);
 
-        this.guards.forEach(g => {
-            g.body.setVelocity(0);
-            g.visionGraphics.destroy();
+        // paralisa/destrói todos os guardas dentro do grupo
+        this.guardsGroup.getChildren().forEach(g => {
+            if (g.body) g.body.setVelocity(0);
+            if (g.visionGraphics) g.visionGraphics.destroy();
             g.destroy();
-        })
-
-        // Fallback em caso de erro no diálogo
-        const restartTimeout = this.time.delayedCall(5000, () => {
-            console.warn("Timeout: reiniciando cena após ser pego");
-            this.scene.restart();
         });
 
-        this.dialogue.showNarration("> Você foi visto pelos guardas!", () => {
-            restartTimeout.remove();
-            this.scene.restart();
-        })
-    }
+        // limpa o grupo da memória
+        this.guardsGroup.clear();
 
+        // fallback em caso de erro no diálogo
+        const restartTimeout = this.time.delayedCall(5000, () => {
+            console.warn("Timeout: reiniciando cena após ser pego");
+            this.scene.restart({ isRestart: true });
+        });
+
+        this.dialogue.showDialogue("> Você foi visto pelos guardas!", null, null, () => {
+            restartTimeout.remove();
+            this.scene.restart({ isRestart: true });
+        });
+    }
 }

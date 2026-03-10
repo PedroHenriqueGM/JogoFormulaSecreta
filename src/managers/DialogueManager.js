@@ -15,7 +15,7 @@ export class DialogueManager {
         if (fontData) fontData.data.lineHeight = 12; 
 
         // margem inferior de 10px
-        const dialogY = height - 35; 
+        const dialogY = height - 28; 
 
         //NARRADOR
         this.narratorContainer = this.scene.add.container(width / 2, dialogY);
@@ -24,7 +24,7 @@ export class DialogueManager {
         this.narratorBox = this.scene.add.image(0, 0, 'ui_box_narrator');
         
         // alinha o texto ao topo
-        this.narratorText = this.scene.add.bitmapText(-135, -20, 'pixelFont', '', 16)
+        this.narratorText = this.scene.add.bitmapText(-148, -20, 'pixelFont', '', 16)
             .setOrigin(0, 0)
             .setMaxWidth(270); 
 
@@ -39,17 +39,22 @@ export class DialogueManager {
 
         this.nameText = this.scene.add.bitmapText(-130, -35, 'pixelFont', '', 8).setOrigin(0.5);
         
-        // alinha o texto ao TOPO
+        // alinha o texto ao topo
         this.charText = this.scene.add.bitmapText(-90, -20, 'pixelFont', '', 16)
             .setOrigin(0, 0)
             .setMaxWidth(220);
 
         this.charContainer.add([this.charBox, this.portraitImage, this.nameText, this.charText]);
 
-        // botao v
-        this.btnNext = this.scene.add.bitmapText(0, 0, 'pixelFont', 'V', 16)
-            .setOrigin(1, 1) 
-            .setDepth(200).setAlpha(0).setVisible(false).setScrollFactor(0);
+        // icone v
+        this.nextIcon = this.scene.add.image(0, 0, 'selector') 
+            .setOrigin(0.5)
+            .setAngle(90)
+            .setFlipY(true)
+            .setDepth(200)
+            .setAlpha(0)
+            .setVisible(false)
+            .setScrollFactor(0);
     }
 
     showDialogue(content, characterName = null, portraitKey = null, callback) {
@@ -113,12 +118,12 @@ export class DialogueManager {
     }
 
     playVoiceForChar(char) {
-        if (char === ' ') return; // Retorna se for espaço em branco
+        if (char === ' ') return; 
 
         const lower = char.toLowerCase();
         let soundKey = null;
 
-        // Detecta as vogais e associa ao som correspondente
+        // detecta as vogais e associa ao som correspondente
         if ('aáàãâ'.includes(lower)) soundKey = 'voice_a';
         else if ('eéê'.includes(lower)) soundKey = 'voice_e';
         else if ('ií'.includes(lower)) soundKey = 'voice_i';
@@ -126,48 +131,57 @@ export class DialogueManager {
         else if ('uúü'.includes(lower)) soundKey = 'voice_u';
 
         if (soundKey) {
-            // Reproduz o som com sobreposição habilitada e pequenas variações
+            // reproduz o som com sobreposição habilitada e pequenas variações
             this.scene.sound.play(soundKey, {
-                overlap: true, // Permite tocar múltiplas instâncias do mesmo som
+                overlap: true, // permite tocar múltiplas instâncias do mesmo som
                 volume: 0.5,
-                detune: Phaser.Math.Between(-50, 50) // Pequena variação no tom para mais naturalidade
+                detune: Phaser.Math.Between(-50, 50) // variação no tom 
             });
         }
     }
 
-    showNextButton() {
+    showNextIcon() {
         const isNarrator = this.narratorContainer.visible;
         const activeContainer = isNarrator ? this.narratorContainer : this.charContainer;
         
-        const xOffset = 140; 
-        const yOffset = 20; 
+        const xOffset = 146; //direita do balão
+        const yOffset = 12; //altura 
 
-        this.btnNext.setPosition(activeContainer.x + xOffset, activeContainer.y + yOffset);
-        this.btnNext.setVisible(true).setAlpha(0);
+        this.scene.tweens.killTweensOf(this.nextIcon);
+
+        this.iconBaseY = activeContainer.y + yOffset;
+
+        this.nextIcon.setPosition(activeContainer.x + xOffset, this.iconBaseY);
+        this.nextIcon.setVisible(true).setAlpha(0);
+
+        this.startBouncing();
 
         this.scene.tweens.add({
-            targets: this.btnNext,
+            targets: this.nextIcon,
             alpha: 1,       
-            duration: 500,
-            onComplete: () => this.startBouncing()
+            duration: 500
         });
     }
 
     startBouncing() {
-        this.scene.tweens.killTweensOf(this.btnNext);
-        this.scene.tweens.add({
-            targets: this.btnNext,
-            y: '-=3',
-            duration: 600,
-            yoyo: true,
+        if (this.bounceTween) this.bounceTween.remove();
+
+        this.bounceTween = this.scene.tweens.addCounter({
+            from: 0, 
+            to: 360, 
+            duration: 1500,
             repeat: -1,
-            ease: 'Sine.easeInOut'
+            onUpdate: (tween) => {
+                const angle = Phaser.Math.DegToRad(tween.getValue());
+                
+                this.nextIcon.y = this.iconBaseY + Math.sin(angle) * 3;
+            }
         });
     }
 
     finishDialogue(callback) {
-        this.scene.tweens.killTweensOf(this.btnNext);
-        this.btnNext.setVisible(false);
+        this.scene.tweens.killTweensOf(this.nextIcon);
+        this.nextIcon.setVisible(false);
 
         this.scene.tweens.add({
             targets: [this.narratorContainer, this.charContainer],
@@ -180,33 +194,33 @@ export class DialogueManager {
     }
 
     waitForClick(callback) {
-        this.timerVisual = this.scene.time.delayedCall(500, () => this.showNextButton());
+        this.visualTimer = this.scene.time.delayedCall(500, () => this.showNextIcon());
 
         const activateInput = () => {
-            let jaAvançou = false;
+            let hasAdvanced = false;
             
-            const avancar = () => {
-                if (jaAvançou) return;
-                jaAvançou = true;
+            const advance = () => {
+                if (hasAdvanced) return;
+                hasAdvanced = true;
 
-                if (this.timerVisual) this.timerVisual.remove();
-                
-                this.scene.tweens.killTweensOf(this.btnNext);
-                this.btnNext.setVisible(false); 
+                if (this.visualTimer) this.visualTimer.remove();
 
-                this.scene.input.off('pointerdown', avancar);
+                this.scene.tweens.killTweensOf(this.nextIcon);
+                this.nextIcon.setVisible(false); 
+
+                this.scene.input.off('pointerdown', advance);
                 if (this.scene.input.keyboard) {
-                    this.scene.input.keyboard.off('keydown-SPACE', avancar);
-                    this.scene.input.keyboard.off('keydown-ENTER', avancar);
+                    this.scene.input.keyboard.off('keydown-SPACE', advance);
+                    this.scene.input.keyboard.off('keydown-ENTER', advance);
                 }
 
                 this.finishDialogue(callback);
             };
 
-            this.scene.input.once('pointerdown', avancar);
+            this.scene.input.once('pointerdown', advance);
             if (this.scene.input.keyboard) {
-                this.scene.input.keyboard.once('keydown-SPACE', avancar);
-                this.scene.input.keyboard.once('keydown-ENTER', avancar);
+                this.scene.input.keyboard.once('keydown-SPACE', advance);
+                this.scene.input.keyboard.once('keydown-ENTER', advance);
             }
         };
 

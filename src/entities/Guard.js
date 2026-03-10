@@ -1,6 +1,8 @@
+import { AnimationManager } from '../managers/AnimationManager.js';
+
 export class Guard extends Phaser.Physics.Arcade.Sprite {
 
-    constructor(scene, x, y, texture, path = []) {
+    constructor(scene, x, y, texture, player, path = []) {
         super(scene, x, y, texture);
 
         scene.add.existing(this);
@@ -36,14 +38,21 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         this.body.setImmovable(false);
 
         this.turnCooldown = 0;
-
+        this.targetPlayer = player; 
+        this.lastDirection = 'down'; 
     }
 
-    update(player) {
+    update() {
         this.moveFree();
         this.handleCollision();
         this.updateVisionCone();
-        return this.checkPlayerInSight(player);
+        this.handleAnimations();
+
+        const seen = this.checkPlayerInSight(this.targetPlayer);
+    
+        if (seen) {
+            this.scene.events.emit('seen');
+        }
     }
 
     // patrol() {
@@ -159,6 +168,26 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
             this.turnCooldown = 10; // frames até poder virar novamente
         }
 
+    }
+
+    handleAnimations() {
+        const texKey = this.texture.key;
+
+        if (this.body.velocity.x < -1) {
+            this.anims.play(`${texKey}_walk_left`, true);
+            this.lastDirection = 'left';
+        } else if (this.body.velocity.x > 1) {
+            this.anims.play(`${texKey}_walk_right`, true);
+            this.lastDirection = 'right';
+        } else if (this.body.velocity.y < -1) {
+            this.anims.play(`${texKey}_walk_up`, true);
+            this.lastDirection = 'up';
+        } else if (this.body.velocity.y > 1) {
+            this.anims.play(`${texKey}_walk_down`, true);
+            this.lastDirection = 'down';
+        } else {
+            AnimationManager.handleIdle(this);
+        }
     }
 
 }
