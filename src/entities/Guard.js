@@ -9,6 +9,8 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         scene.physics.add.existing(this);
 
         this.scene = scene;
+
+        this.isActive = true;
         
         // MOVIMENTO
         this.speed = 40;
@@ -43,6 +45,9 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     }
 
     update() {
+
+        if (!this.isActive) return; // trava tudo
+
         this.moveFree();
         this.handleCollision();
         this.updateVisionCone();

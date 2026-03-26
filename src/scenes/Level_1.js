@@ -32,7 +32,10 @@ export class Level_1 extends Phaser.Scene {
         const spawnX = 55;
         const spawnY = 30;
 
-        this.bgMusic = this.sound.add('level1', { loop: true, volume: 0 });
+        this.bgMusic = this.sound.get('level1');
+        if (!this.bgMusic) {
+            this.bgMusic = this.sound.add('level1', { loop: true, volume: 0 });
+        }
 
         this.dialogue = new DialogueManager(this);
         this.canMove = false;
@@ -76,14 +79,20 @@ export class Level_1 extends Phaser.Scene {
 
         // se for restart da fase, recomeça sem a cutscene e libera o boneco
         if (data && data.isRestart) {
-            this.bgMusic.play();
+            if (!this.bgMusic.isPlaying) {
+                this.bgMusic.play(); // só toca se não estiver tocando
+            }
+
             this.bgMusic.setVolume(0.5);
             this.canMove = true;
         }
     }
 
     iniciarCutscene() {
-        this.bgMusic.play();
+        if (!this.bgMusic.isPlaying) {
+            this.bgMusic.play(); // ssó toca se ainda não estiver tocando
+        }
+        
         this.tweens.add({
             targets: this.bgMusic,
             volume: 0.5,
@@ -118,17 +127,33 @@ export class Level_1 extends Phaser.Scene {
          if (!this.canMove) return; // evita rodar duas vezes se dois guardas virem ao mesmo tempo
 
         this.canMove = false;
+
+        // PARA o player completamente
+        this.player.setVelocity(0);
         this.player.setTint(0xff0000);
+
+        // para a animação do player
+        if (this.player.anims.isPlaying) this.player.anims.stop();
+        this.player.setFrame(1); // frame de ser pego
 
         // paralisa/destrói todos os guardas dentro do grupo
         this.guardsGroup.getChildren().forEach(g => {
-            if (g.body) g.body.setVelocity(0);
-            if (g.visionGraphics) g.visionGraphics.destroy();
-            g.destroy();
-        });
+            g.isActive = false; // DESLIGA O GUARDA
 
-        // limpa o grupo da memória
-        this.guardsGroup.clear();
+            if (g.body) {
+                g.body.setVelocity(0, 0);
+                g.body.moves = false; // garante que não mexe mais
+            }
+
+            if (g.anims.isPlaying) {
+                g.anims.stop();
+                g.setFrame(1); // frame de ver o player
+            }
+
+            // g.visionGraphics.clear();
+            // g.visionGraphics.setVisible(false);
+
+        });
 
         // fallback em caso de erro no diálogo
         const restartTimeout = this.time.delayedCall(5000, () => {
