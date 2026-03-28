@@ -11,8 +11,8 @@ export class Level_1 extends Phaser.Scene {
 
     preload() {
         // carregando mapa tilemap
-        this.load.image('tiles', 'assets/mapas/Set 1.png');
-        this.load.tilemapTiledJSON('level_1_map', 'assets/mapas/map.json');
+        this.load.image('tileset', 'assets/maps/tileset_1.png');
+        this.load.tilemapTiledJSON('level_1_map', 'assets/maps/map_1.json');
 
         // carregando sprites
         this.load.spritesheet('young_niccolo', 'assets/entities/young_niccolo.png', {frameWidth: 32, frameHeight: 32});
@@ -29,8 +29,8 @@ export class Level_1 extends Phaser.Scene {
 
     create(data) {
         const { width, height } = this.scale;
-        const spawnX = 55;
-        const spawnY = 30;
+        const spawnX = 32;
+        const spawnY = 1024;
 
         this.bgMusic = this.sound.get('level1');
         if (!this.bgMusic) {
@@ -41,10 +41,10 @@ export class Level_1 extends Phaser.Scene {
         this.canMove = false;
 
         const map = this.make.tilemap({key: 'level_1_map' });
-        const tileset = map.addTilesetImage('set 1', 'tiles');
+        const tileset = map.addTilesetImage('tileset_1', 'tileset');
 
-        const ground = map.createLayer('chao', tileset, 0, 0);
-        const walls = map.createLayer('paredes', tileset, 0, 0);
+        const ground = map.createLayer('Tile Layer 3', tileset, 0, 0);
+        const walls = map.createLayer('Tile Layer 2', tileset, 0, 0);
 
         this.wallsLayer = walls;
         walls.setCollisionByProperty({ collider: true });
@@ -58,9 +58,21 @@ export class Level_1 extends Phaser.Scene {
             runChildUpdate: true
         });
 
-        const guard1 = new Guard(this, 200, 100, 'guard', this.player);
-        this.physics.add.collider(guard1, walls);
+        const guard1Limits = { 
+            minX: 150, 
+            maxX: 400, 
+            minY: 50, 
+            maxY: 150 
+        };
+
+        // 5 * 32 = 160 | 32 * 32 = 1024
+        // guarda que pode andar 64 pixels (2 tiles) para qualquer lado
+        const guard1 = new Guard(this, 160, 1024, 'guard', this.player, [], 64);
         this.guardsGroup.add(guard1);
+
+        // guarda que anda 32 pixels
+        const guard2 = new Guard(this, 600, 800, 'guard', this.player, [], 32);
+        this.guardsGroup.add(guard2);
 
         // escutar o seen para disparar o game over
         this.events.on('seen', this.onPlayerCaught, this);
@@ -72,6 +84,7 @@ export class Level_1 extends Phaser.Scene {
         // câmera seguindo o player
         this.cameras.main.startFollow(this.player, true);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        this.cameras.main.setRoundPixels(true);
 
         // controles do teclado
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -107,6 +120,10 @@ export class Level_1 extends Phaser.Scene {
     update() {
         if (!this.canMove) return;
         this.player.update(this.cursors, this.keys, this.canMove);
+
+        this.guardsGroup.getChildren().forEach(guard => {
+        guard.update();
+        });
     }
 
     showIntroText() {

@@ -27,7 +27,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             return;
         }
 
-         this.setVelocity(0);
+        this.setVelocity(0);
 
         // leitura dos botoes
         let left = cursors.left.isDown || keys.A.isDown;
@@ -35,33 +35,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         let up = cursors.up.isDown || keys.W.isDown;
         let down = cursors.down.isDown || keys.S.isDown;
 
-        // velocidade de cada direção
-        if (left) this.setVelocityX(-this.speed);
-        else if (right) this.setVelocityX(this.speed);
-
-        if (up) this.setVelocityY(-this.speed);
-        else if (down) this.setVelocityY(this.speed);
-        
         const texKey = this.texture.key; // para trocar a imagem do player (adulto/criança)
 
-        // animações
+        // velocidade de cada direção e animações
         if (left) {
+            this.setVelocityX(-this.speed);
             this.anims.play(`${texKey}_walk_left`, true);
             this.lastDirection = 'left';
         } 
         else if (right) {
+            this.setVelocityX(this.speed);
             this.anims.play(`${texKey}_walk_right`, true);
             this.lastDirection = 'right';
         } 
         else if (up) {
+            this.setVelocityY(-this.speed);
             this.anims.play(`${texKey}_walk_up`, true);
             this.lastDirection = 'up';
         } 
         else if (down) {
+            this.setVelocityY(this.speed);
             this.anims.play(`${texKey}_walk_down`, true);
             this.lastDirection = 'down';
         } 
         else {
+            this.x = Math.round(this.x);
+            this.y = Math.round(this.y);
+
             // repouso baseado na última direção
             AnimationManager.handleIdle(this);
         }

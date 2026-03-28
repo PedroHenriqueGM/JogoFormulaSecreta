@@ -2,7 +2,7 @@ import { AnimationManager } from '../managers/AnimationManager.js';
 
 export class Guard extends Phaser.Physics.Arcade.Sprite {
 
-    constructor(scene, x, y, texture, player, path = []) {
+    constructor(scene, x, y, texture, player, path = [], range = 100) {
         super(scene, x, y, texture);
 
         scene.add.existing(this);
@@ -35,13 +35,17 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         this.rayCount = 20;
         this.wallsLayer = scene.wallsLayer; // camada de paredes para checar colisões
 
-        // CONFIGURAÇÃO FÍSICA (ricochete)
-        this.body.setBounce(1,1);
         this.body.setImmovable(false);
 
         this.turnCooldown = 0;
         this.targetPlayer = player; 
         this.lastDirection = 'down'; 
+
+        this.setDepth(10); // para ficar na frente de tudo
+
+        this.spawnX = x; // onde ele nasceu
+        this.spawnY = y; 
+        this.patrolRange = range; // o quanto ele pode se afastar do ponto de spawn (se tiver limites de movimento)
     }
 
     update() {
@@ -60,23 +64,6 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
-    // patrol() {
-    //     if (!this.path.length) return;
-
-    //     const target = this.path[this.currentPoint]; // ponto alvo atual
-    //     const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y); // distância até o ponto alvo
-
-    //     // movendo em direção ao ponto alvo
-    //     if (dist < 4) {
-    //         this.currentPoint = (this.currentPoint + 1) % this.path.length;
-    //         return;
-    //     }
-
-    //     const angle = Phaser.Math.Angle.Between(this.x, this.y, target.x, target.y); // ângulo em direção ao ponto alvo
-    //     this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
-
-    //     this.facing.setTo(Math.cos(angle), Math.sin(angle));
-    // }
 
     updateVisionCone() {
         const g = this.visionGraphics;
@@ -149,7 +136,6 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     }
 
     handleCollision() {
-
         if (this.turnCooldown > 0) {
             this.turnCooldown--;
             return;
@@ -158,21 +144,30 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         const body = this.body;
         let turned = false;
 
-        if (body.blocked.left || body.blocked.right) {
+        // colisão com paredes
+        if (body.blocked.left || body.blocked.right) { this.direction.x *= -1; turned = true; }
+        if (body.blocked.up || body.blocked.down) { this.direction.y *= -1; turned = true; }
+
+        //limites de patrulha (se tiver)
+        const distDeltaX = Math.abs(this.x - this.spawnX);
+        const distDeltaY = Math.abs(this.y - this.spawnY);
+
+        // colisão invisível
+        if (distDeltaX > this.patrolRange) {
             this.direction.x *= -1;
+            this.x = this.x < this.spawnX ? this.spawnX - this.patrolRange + 1 : this.spawnX + this.patrolRange - 1;
             turned = true;
         }
-
-        if (body.blocked.up || body.blocked.down) {
+        if (distDeltaY > this.patrolRange) {
             this.direction.y *= -1;
+            this.y = this.y < this.spawnY ? this.spawnY - this.patrolRange + 1 : this.spawnY + this.patrolRange - 1;
             turned = true;
         }
 
         if (turned) {
             this.direction.normalize();
-            this.turnCooldown = 10; // frames até poder virar novamente
+            this.turnCooldown = 15; // evita virar muito rápido em cantos
         }
-
     }
 
     handleAnimations() {
