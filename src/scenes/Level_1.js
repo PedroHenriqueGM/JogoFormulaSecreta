@@ -47,16 +47,16 @@ export class Level_1 extends Phaser.Scene {
         const walls = map.createLayer('Tile Layer 2', tileset, 0, 0);
 
         this.wallsLayer = walls;
-        walls.setCollisionByProperty({ collider: true });
+        // A propriedade "collider" está na layer do Tiled, não em cada tile.
+        // Como esta layer representa as paredes, marcamos todo tile visível como colidível.
+        walls.setCollisionByExclusion([-1, 0]);
 
         // player
         this.player = new Player(this, spawnX, spawnY, 'young_niccolo');
         this.physics.add.collider(this.player, walls);
 
         // grupo e guardas
-        this.guardsGroup = this.add.group({
-            runChildUpdate: true
-        });
+        this.guardsGroup = this.physics.add.group();
 
         const guard1Limits = { 
             minX: 150, 
@@ -73,6 +73,8 @@ export class Level_1 extends Phaser.Scene {
         // guarda que anda 32 pixels
         const guard2 = new Guard(this, 600, 800, 'guard', this.player, [], 32);
         this.guardsGroup.add(guard2);
+
+        this.physics.add.collider(this.guardsGroup, walls);
 
         // escutar o seen para disparar o game over
         this.events.on('seen', this.onPlayerCaught, this);
@@ -122,7 +124,7 @@ export class Level_1 extends Phaser.Scene {
         this.player.update(this.cursors, this.keys, this.canMove);
 
         this.guardsGroup.getChildren().forEach(guard => {
-        guard.update();
+            guard.update();
         });
     }
 
