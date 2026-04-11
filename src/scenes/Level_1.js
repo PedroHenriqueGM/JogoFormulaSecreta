@@ -77,6 +77,7 @@ export class Level_1 extends Phaser.Scene {
 
         // 5 * 32 = 160 | 32 * 32 = 1024
         // guarda que pode andar 64 pixels (2 tiles) para qualquer lado
+        // direções aceitas: all, horizontal, vertical, right, direita, left, esquerda, down, baixo, up, cima (aceita português e inglês)
         const guard1 = new Guard(this, 160, 1024, 'guard', this.player, [], 64, 'vertical');
         this.guardsGroup.add(guard1);
 
