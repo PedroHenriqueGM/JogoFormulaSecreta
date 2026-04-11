@@ -2,7 +2,7 @@ import { AnimationManager } from '../managers/AnimationManager.js';
 
 export class Guard extends Phaser.Physics.Arcade.Sprite {
 
-    constructor(scene, x, y, texture, player, path = [], range = 100) {
+    constructor(scene, x, y, texture, player, path = [], range = 100, allowedDirections = ['right', 'left', 'down', 'up']) {
         super(scene, x, y, texture);
 
         scene.add.existing(this);
@@ -15,14 +15,9 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         // MOVIMENTO
         this.speed = 40;
 
-        // direção inicial aleatória (4 direções possíveis)
-        const dirs = [
-            new Phaser.Math.Vector2(1,0),
-            new Phaser.Math.Vector2(-1,0),
-            new Phaser.Math.Vector2(0,1),
-            new Phaser.Math.Vector2(0,-1)
-        ];
-        this.direction = Phaser.Utils.Array.GetRandom(dirs);
+        // direção inicial aleatória entre as direções permitidas
+        this.allowedDirections = this.normalizeAllowedDirections(allowedDirections);
+        this.direction = this.getRandomAllowedDirection();
 
         // VISÃO
         this.visionDistance = 120;
@@ -46,6 +41,61 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         this.spawnX = x; // onde ele nasceu
         this.spawnY = y; 
         this.patrolRange = range; // o quanto ele pode se afastar do ponto de spawn (se tiver limites de movimento)
+    }
+
+    // normaliza as direções permitidas, aceitando termos como "horizontal", "vertical", "all" e traduções
+    normalizeAllowedDirections(allowedDirections) {
+        const directionAliases = {
+            all: ['right', 'left', 'down', 'up'],
+            horizontal: ['right', 'left'],
+            vertical: ['down', 'up'],
+            right: 'right',
+            direita: 'right',
+            left: 'left',
+            esquerda: 'left',
+            down: 'down',
+            baixo: 'down',
+            up: 'up',
+            cima: 'up'
+        };
+
+        // aceita tanto string única quanto array de strings
+        const requestedDirections = Array.isArray(allowedDirections) ? allowedDirections : [allowedDirections];
+        const normalizedDirections = [];
+
+        // processa cada direção solicitada, convertendo para as direções reais usando os aliases
+        requestedDirections.forEach(direction => {
+            const directionKey = typeof direction === 'string' ? direction.trim().toLowerCase() : direction; // para evitar erros de formatação
+            const alias = directionAliases[directionKey]; // pode ser uma string única ou um array de strings dependendo do alias
+            const directions = Array.isArray(alias) ? alias : [alias]; // garante que seja sempre um array para facilitar o processamento
+
+            // adiciona as direções normalizadas, evitando duplicatas
+            directions.forEach(normalizedDirection => {
+                // só adiciona se for uma direção válida e ainda não tiver sido adicionada
+                if (normalizedDirection && !normalizedDirections.includes(normalizedDirection)) {
+                    normalizedDirections.push(normalizedDirection);
+                }
+            });
+        });
+
+        // se nenhuma direção válida foi encontrada, retorna todas as direções como padrão
+        return normalizedDirections.length > 0 ? normalizedDirections : directionAliases.all;
+    }
+
+    // escolhe uma direção aleatória entre as permitidas
+    getRandomAllowedDirection() {
+        const directionName = Phaser.Utils.Array.GetRandom(this.allowedDirections);
+
+        // converte o nome da direção para um vetor de movimento
+        const directions = {
+            right: new Phaser.Math.Vector2(1, 0),
+            left: new Phaser.Math.Vector2(-1, 0),
+            down: new Phaser.Math.Vector2(0, 1),
+            up: new Phaser.Math.Vector2(0, -1)
+        };
+
+        // retorna o vetor correspondente à direção escolhida
+        return directions[directionName].clone();
     }
 
     update() {

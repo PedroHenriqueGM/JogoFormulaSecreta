@@ -15,6 +15,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
         // atributos
         this.speed = 70;
+        this.baseSpeed = this.speed;
+        this.slowSpeed = 35;
+        this.slowTime = 500;
+        this.slowTimer = null;
         this.lastDirection = 'down'; // começa nessa posição
         this.setFrame(1);
 
@@ -81,7 +85,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
-    takeDamage(amount, shouldKnockback = false) {
+    takeDamage(amount, shouldKnockback = false, shouldSlow = false) {
         if(this.isInvulnerable || this.isDead) return;
 
         this.health -= amount;
@@ -111,11 +115,40 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             return;
         }
 
+        if (shouldSlow) {
+            const slowDelay = shouldKnockback ? this.knockbackTime : 0;
+            this.applySlow(slowDelay);
+        }
+
         this.scene.time.delayedCall(this.invulnerabilityTime, () => {
             this.isInvulnerable = false;
             if(!this.isDead) this.clearTint();
         });
 
+    }
+
+    applySlow(delay = 0) {
+        if (this.slowTimer) {
+            this.slowTimer.remove();
+        }
+
+        const startSlow = () => {
+            if (this.isDead) return;
+
+            this.speed = this.slowSpeed;
+
+            this.slowTimer = this.scene.time.delayedCall(this.slowTime, () => {
+                this.speed = this.baseSpeed;
+                this.slowTimer = null;
+            });
+        };
+
+        if (delay > 0) {
+            this.slowTimer = this.scene.time.delayedCall(delay, startSlow);
+            return;
+        }
+
+        startSlow();
     }
 
     applyKnockback() {

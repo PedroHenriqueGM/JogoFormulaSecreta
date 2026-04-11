@@ -77,7 +77,7 @@ export class Level_1 extends Phaser.Scene {
 
         // 5 * 32 = 160 | 32 * 32 = 1024
         // guarda que pode andar 64 pixels (2 tiles) para qualquer lado
-        const guard1 = new Guard(this, 160, 1024, 'guard', this.player, [], 64);
+        const guard1 = new Guard(this, 160, 1024, 'guard', this.player, [], 64, 'vertical');
         this.guardsGroup.add(guard1);
 
         // guarda que anda 32 pixels
@@ -144,7 +144,7 @@ export class Level_1 extends Phaser.Scene {
         // verifica se o player está em um tile de fogo
         const tileFire = this.fireLayer.getTileAtWorldXY(this.player.x, this.player.y);
         if(tileFire && tileFire.properties.isFire) {
-            this.player.takeDamage(1, true);
+            this.player.takeDamage(1, true, true);
         }
 
     }
@@ -208,7 +208,7 @@ export class Level_1 extends Phaser.Scene {
     }
 
     handlePlayerFire(player, tile) {
-        player.takeDamage(1, true);
+        player.takeDamage(1, true, true);
     }
 
     onPlayerDied() {
