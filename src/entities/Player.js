@@ -17,6 +17,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.speed = 70;
         this.lastDirection = 'down'; // começa nessa posição
         this.setFrame(1);
+
+        // sistema de vida
+        this.maxHealth = 6;
+        this.health = this.maxHealth;
+        this.isInvulnerable = false;
+        this.invulnerabilityTime = 1000; // 1 segundo de invulnerabilidade após levar dano
+        this.isDead = false;
+        this.isKnockedBack = false;
+        this.knockbackSpeed = 150;
+        this.knockbackTime = 180;
     }
 
     update(cursors, keys, canMove) {
@@ -24,6 +34,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (!canMove) {
             this.setVelocity(0);
             if (this.anims.isPlaying) this.anims.stop();
+            return;
+        }
+
+        if (this.isKnockedBack) {
             return;
         }
 
@@ -66,4 +80,93 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             AnimationManager.handleIdle(this);
         }
     }
+
+    takeDamage(amount, shouldKnockback = false) {
+        if(this.isInvulnerable || this.isDead) return;
+
+        this.health -= amount;
+
+        // feedback visual de dano
+        this.setTint(0xff0000); // pinta o player de vermelho
+        this.isInvulnerable = true;
+
+        this.scene.time.delayedCall(150, () => {
+            if (!this.isDead) this.clearTint();
+        });
+
+        if (shouldKnockback) {
+            this.applyKnockback();
+        }
+
+        if (this.health <= 0){
+            this.health = 0;
+        }
+
+        if(this.scene.healthText) {
+            this.scene.healthText.setText(`❤️ ${this.health}/${this.maxHealth}`);
+        }
+
+        if (this.health <= 0){
+            this.die();
+            return;
+        }
+
+        this.scene.time.delayedCall(this.invulnerabilityTime, () => {
+            this.isInvulnerable = false;
+            if(!this.isDead) this.clearTint();
+        });
+
+    }
+
+    applyKnockback() {
+        if (this.isDead) return;
+
+        this.isKnockedBack = true;
+
+        let velocityX = 0;
+        let velocityY = 0;
+
+        if (this.lastDirection === 'left') {
+            velocityX = this.knockbackSpeed;
+        }
+        else if (this.lastDirection === 'right') {
+            velocityX = -this.knockbackSpeed;
+        }
+        else if (this.lastDirection === 'up') {
+            velocityY = this.knockbackSpeed;
+        }
+        else if (this.lastDirection === 'down') {
+            velocityY = -this.knockbackSpeed;
+        }
+
+        this.setVelocity(velocityX, velocityY);
+
+        if(this.anims.isPlaying) {
+            this.anims.stop();
+        }
+
+        this.scene.time.delayedCall(this.knockbackTime, () => {
+            this.isKnockedBack = false;
+
+            if(!this.isDead) {
+                this.setVelocity(0);
+            }
+        });
+    }
+
+    die() {
+
+        if(this.isDead) return; // previne múltiplas mortes
+
+        this.isDead = true;
+        this.setVelocity(0);
+
+        if(this.anims.isPlaying) {
+            this.anims.stop();
+        }
+
+        this.scene.events.emit('playerDied'); // avisa a cena que o player morreu
+
+    }
+
 }

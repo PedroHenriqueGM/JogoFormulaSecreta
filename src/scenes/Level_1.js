@@ -45,15 +45,25 @@ export class Level_1 extends Phaser.Scene {
 
         const ground = map.createLayer('Tile Layer 3', tileset, 0, 0);
         const walls = map.createLayer('Tile Layer 2', tileset, 0, 0);
+        const fire = map.createLayer('Fogo', tileset, 0, 0);
 
         this.wallsLayer = walls;
         // A propriedade "collider" está na layer do Tiled, não em cada tile.
         // Como esta layer representa as paredes, marcamos todo tile visível como colidível.
         walls.setCollisionByExclusion([-1, 0]);
 
+        this.fireLayer = fire;
+
         // player
         this.player = new Player(this, spawnX, spawnY, 'young_niccolo');
         this.physics.add.collider(this.player, walls);
+
+        this.healthText = this.add.text(16, 16, `❤️ ${this.player.health}/${this.player.maxHealth}`, {
+            fontSize: '16px',
+            fill: '#ffffff'
+        })
+        .setScrollFactor(0) // fixa na tela
+        .setDepth(100); // fica por cima de tudo
 
         // grupo e guardas
         this.guardsGroup = this.physics.add.group();
@@ -79,6 +89,9 @@ export class Level_1 extends Phaser.Scene {
         // escutar o seen para disparar o game over
         this.events.on('seen', this.onPlayerCaught, this);
 
+        // escutar o playerDied para reiniciar a fase
+        this.events.on('playerDied', this.onPlayerDied, this);
+
         // animações
         AnimationManager.createCharacterAnims(this, 'young_niccolo');
         AnimationManager.createCharacterAnims(this, 'guard');
@@ -101,6 +114,7 @@ export class Level_1 extends Phaser.Scene {
             this.bgMusic.setVolume(0.5);
             this.canMove = true;
         }
+
     }
 
     iniciarCutscene() {
@@ -126,6 +140,13 @@ export class Level_1 extends Phaser.Scene {
         this.guardsGroup.getChildren().forEach(guard => {
             guard.update();
         });
+
+        // verifica se o player está em um tile de fogo
+        const tileFire = this.fireLayer.getTileAtWorldXY(this.player.x, this.player.y);
+        if(tileFire && tileFire.properties.isFire) {
+            this.player.takeDamage(1, true);
+        }
+
     }
 
     showIntroText() {
@@ -185,4 +206,41 @@ export class Level_1 extends Phaser.Scene {
             this.scene.restart({ isRestart: true });
         });
     }
+
+    handlePlayerFire(player, tile) {
+        player.takeDamage(1, true);
+    }
+
+    onPlayerDied() {
+        if(!this.canMove) return; // previne múltiplas execuções
+
+        this.canMove = false;
+
+        this.player.setVelocity(0);
+        this.player.setTint(0xff0000);
+
+        if(this.player.anims.isPlaying) this.player.anims.stop();
+        this.player.setFrame(1); // frame de morte
+
+        this.guardsGroup.getChildren().forEach(g => {
+            g.isActive = false;
+
+            if(g.body) {
+                g.body.setVelocity(0, 0);
+                g.body.moves = false;
+            }
+
+            if(g.anims.isPlaying) {
+                g.anims.stop();
+                g.setFrame(1);
+            }
+
+        });
+
+        this.dialogue.showDialogue("> Niccolò sucumbiu às chamas!", null, null, () => {
+            this.scene.restart({ isRestart: true });
+        });
+
+    }
+
 }
