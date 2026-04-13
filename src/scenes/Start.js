@@ -1,5 +1,6 @@
 import { DialogueManager } from '../managers/DialogueManager.js';
 import { EffectManager } from '../managers/EffectManager.js';
+import { SaveManager } from '../managers/SaveManager.js';
 
 export class Start extends Phaser.Scene {
     constructor() {
@@ -105,6 +106,12 @@ export class Start extends Phaser.Scene {
         this.menuButtons = [btnStart, btnContinue, btnOptions];
         this.uiGroup.addMultiple([glow, this.selectorSprite, title, btnStart, btnContinue, btnOptions]);
 
+        // desabilita o botão "Continuar" visualmente se não houver save
+        this.continueDisabled = !SaveManager.hasSave();
+        if (this.continueDisabled) {
+            btnContinue.setTint(0x444444); // cinza escuro
+        }
+
         this.setupMenuInputs();
         this.updateSelectorPosition(); 
 
@@ -122,7 +129,12 @@ export class Start extends Phaser.Scene {
 
     setupMenuInputs() {
         this.menuButtons.forEach((btn, index) => {
-            btn.on('pointerover', () => { if (this.isMenuReady) { this.selectedButtonIndex = index; this.updateSelectorPosition(); } });
+            btn.on('pointerover', () => {
+                if (!this.isMenuReady) return;
+                if (index === 1 && this.continueDisabled) return; // ignora hover no botão desabilitado
+                this.selectedButtonIndex = index;
+                this.updateSelectorPosition();
+            });
             btn.on('pointerdown', () => { if (this.isMenuReady) this.triggerMenuAction(); });
         });
         this.input.keyboard.on('keydown', (event) => {
@@ -137,7 +149,14 @@ export class Start extends Phaser.Scene {
 
     changeSelection(direction) {
         const len = this.menuButtons.length;
-        this.selectedButtonIndex = (this.selectedButtonIndex + direction + len) % len;
+        let next = (this.selectedButtonIndex + direction + len) % len;
+
+        // pula o índice 1 (Continuar) se estiver desabilitado
+        if (next === 1 && this.continueDisabled) {
+            next = (next + direction + len) % len;
+        }
+
+        this.selectedButtonIndex = next;
         this.updateSelectorPosition();
     }
 
@@ -149,10 +168,145 @@ export class Start extends Phaser.Scene {
     }
 
     triggerMenuAction() {
-        this.isMenuReady = false; 
+        this.isMenuReady = false;
         this.input.keyboard.removeAllListeners('keydown');
-        if (this.selectedButtonIndex === 0) this.runIntroSequence(); 
-        else { console.log("Opção em desenvolvimento."); this.isMenuReady = true; this.setupMenuInputs(); }
+
+        if (this.selectedButtonIndex === 0) {
+            // Novo jogo: pede confirmação se já houver save
+            if (SaveManager.hasSave()) {
+                this.showConfirmNewGame();
+            } else {
+                this.runIntroSequence();
+            }
+        } else if (this.selectedButtonIndex === 1) {
+            // Continuar
+            const save = SaveManager.load();
+            if (save) {
+                this.startContinue(save.level);
+            } else {
+                console.log('Nenhum save encontrado.');
+                this.isMenuReady = true;
+                this.setupMenuInputs();
+            }
+        } else {
+            // Outras opções (Configurações, etc.)
+            console.log('Opção em desenvolvimento.');
+            this.isMenuReady = true;
+            this.setupMenuInputs();
+        }
+    }
+
+    startContinue(levelKey) {
+        // faz fade out da música e da câmera ao mesmo tempo
+        if (this.musicIntro) {
+            this.tweens.add({
+                targets: this.musicIntro,
+                volume: 0,
+                duration: 800,
+                onComplete: () => this.musicIntro.stop()
+            });
+        }
+
+        this.cameras.main.fadeOut(800, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start(levelKey, { fromSave: true });
+        });
+    }
+
+    showConfirmNewGame() {
+        const { width, height } = this.scale;
+
+        // índice 0 = Sim | índice 1 = Não  (começa no "Não" por segurança)
+        this.confirmIndex = 1;
+
+        // escurece o fundo
+        this.confirmOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75)
+            .setDepth(60).setScrollFactor(0);
+
+        // caixa do diálogo (retângulo redimensionável)
+        const boxW = 280, boxH = 80;
+        this.confirmBox = this.add.graphics().setDepth(61).setScrollFactor(0);
+        this.confirmBox.fillStyle(0x111111, 1);
+        this.confirmBox.fillRect(width / 2 - boxW / 2, height / 2 - boxH / 2, boxW, boxH);
+        this.confirmBox.lineStyle(2, 0xffffff, 1);
+        this.confirmBox.strokeRect(width / 2 - boxW / 2, height / 2 - boxH / 2, boxW, boxH);
+
+        // mensagem
+        this.confirmMsg = this.add.bitmapText(width / 2, height / 2 - 16, 'pixelFont',
+            'O save atual sera apagado.\nTem certeza que deseja iniciar um novo jogo?', 16)
+            .setOrigin(0.5, 0.5).setDepth(62).setScrollFactor(0);
+
+        // opções
+        this.confirmOptSim = this.add.bitmapText(width / 2 - 50, height / 2 + 18, 'pixelFont', 'Sim', 16)
+            .setOrigin(0.5).setDepth(62).setScrollFactor(0);
+
+        this.confirmOptNao = this.add.bitmapText(width / 2 + 50, height / 2 + 18, 'pixelFont', 'Nao', 16)
+            .setOrigin(0.5).setDepth(62).setScrollFactor(0);
+
+        // seta indicadora
+        this.confirmCursor = this.add.bitmapText(0, height / 2 + 18, 'pixelFont', '>', 16)
+            .setOrigin(0.5).setDepth(62).setScrollFactor(0);
+
+        this.updateConfirmCursor();
+        this.setupConfirmInputs();
+    }
+
+    updateConfirmCursor() {
+        const { width } = this.scale;
+        // posiciona a seta à esquerda da opção selecionada
+        const xSim = width / 2 - 50;
+        const xNao = width / 2 + 50;
+        this.confirmCursor.setX(this.confirmIndex === 0 ? xSim - 18 : xNao - 18);
+
+        // destaca a opção ativa
+        this.confirmOptSim.setTint(this.confirmIndex === 0 ? 0xffffff : 0x888888);
+        this.confirmOptNao.setTint(this.confirmIndex === 1 ? 0xffffff : 0x888888);
+    }
+
+    setupConfirmInputs() {
+        // navegação por teclado
+        this.input.keyboard.on('keydown', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                this.confirmIndex = 0;
+                this.updateConfirmCursor();
+            } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                this.confirmIndex = 1;
+                this.updateConfirmCursor();
+            } else if (e.code === 'Enter' || e.code === 'Space') {
+                this.resolveConfirm();
+            } else if (e.code === 'Escape') {
+                this.confirmIndex = 1;
+                this.resolveConfirm();
+            }
+        });
+
+        // navegação por mouse
+        this.confirmOptSim.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => { this.confirmIndex = 0; this.updateConfirmCursor(); })
+            .on('pointerdown', () => { this.confirmIndex = 0; this.resolveConfirm(); });
+
+        this.confirmOptNao.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => { this.confirmIndex = 1; this.updateConfirmCursor(); })
+            .on('pointerdown', () => { this.confirmIndex = 1; this.resolveConfirm(); });
+    }
+
+    resolveConfirm() {
+        // remove os listeners de confirmação
+        this.input.keyboard.removeAllListeners('keydown');
+
+        // destroi os elementos da tela de confirmação
+        [this.confirmOverlay, this.confirmBox, this.confirmMsg,
+         this.confirmOptSim, this.confirmOptNao, this.confirmCursor].forEach(o => o?.destroy());
+
+        if (this.confirmIndex === 0) {
+            // confirmou: apaga o save e inicia novo jogo
+            SaveManager.deleteSave();
+            this.runIntroSequence();
+        } else {
+            // cancelou: volta ao menu
+            this.isMenuReady = true;
+            this.setupMenuInputs();
+        }
     }
 
     //CUTSCENE
