@@ -1,5 +1,6 @@
 import { Start } from './scenes/Start.js'; // Certifique-se do nome correto do arquivo
 import { Level_1 } from './scenes/Level_1.js'; // Certifique-se do nome correto do arquivo
+import { PauseMenu } from './scenes/PauseMenu.js'; 
 
 const config = {
     type: Phaser.AUTO,
@@ -24,7 +25,8 @@ const config = {
     },
     scene: [
         Start,
-        Level_1
+        Level_1,
+        PauseMenu
     ],
     scale: {
         mode: Phaser.Scale.NONE,

@@ -39,6 +39,14 @@ export class Level_1 extends Phaser.Scene {
         const spawnX = 32;
         const spawnY = 1024;
 
+        // Tecla ESC para abrir o pause
+        this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        this.input.keyboard.on("keydown-ESC", () => {
+            if(!this.canMove) return; //não abre durante cutscene/diálogo
+            this.scene.pause();
+            this.scene.launch("PauseMenu", { origemCena: this.scene.key });
+        })
+
         this.bgMusic = this.sound.get("level1");
         if (!this.bgMusic) {
         this.bgMusic = this.sound.add("level1", { loop: true, volume: 0 });
