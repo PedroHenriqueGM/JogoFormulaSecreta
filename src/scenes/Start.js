@@ -18,6 +18,7 @@ export class Start extends Phaser.Scene {
         // UI
         this.load.image('ui_box_narrator', 'assets/ui/ui_box_narrator.png');
         this.load.image('ui_box_character', 'assets/ui/ui_box_character.png');
+        this.load.image('confirm_box', 'assets/ui/confirm_box.png');
 
         // EFEITOS
         this.load.spritesheet('flare', 'assets/intro/flare.png', { frameWidth: 16, frameHeight: 16 });
@@ -115,7 +116,7 @@ export class Start extends Phaser.Scene {
         this.setupMenuInputs();
         this.updateSelectorPosition(); 
 
-        this.tweens.addCounter({
+        this.selectorTween = this.tweens.addCounter({
             from: 0, to: 360, duration: 1500, repeat: -1,
             onUpdate: (tween) => {
                 const angle = Phaser.Math.DegToRad(tween.getValue());
@@ -215,37 +216,48 @@ export class Start extends Phaser.Scene {
 
     showConfirmNewGame() {
         const { width, height } = this.scale;
+        
+        if (this.selectorTween) this.selectorTween.pause(); // pausa o seletor do fundo
 
-        // índice 0 = Sim | índice 1 = Não  (começa no "Não" por segurança)
+        // Índice 0 = Sim | Índice 1 = Não  (começa no "Não" por segurança)
         this.confirmIndex = 1;
 
-        // escurece o fundo
+        // Escurece o fundo
         this.confirmOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75)
             .setDepth(60).setScrollFactor(0);
 
-        // caixa do diálogo (retângulo redimensionável)
-        const boxW = 280, boxH = 80;
-        this.confirmBox = this.add.graphics().setDepth(61).setScrollFactor(0);
-        this.confirmBox.fillStyle(0x111111, 1);
-        this.confirmBox.fillRect(width / 2 - boxW / 2, height / 2 - boxH / 2, boxW, boxH);
-        this.confirmBox.lineStyle(2, 0xffffff, 1);
-        this.confirmBox.strokeRect(width / 2 - boxW / 2, height / 2 - boxH / 2, boxW, boxH);
+        this.confirmBox = this.add.image(width / 2, height / 2, 'confirm_box')
+            .setDepth(61).setScrollFactor(0);
 
-        // mensagem
+        // Mensagem
         this.confirmMsg = this.add.bitmapText(width / 2, height / 2 - 16, 'pixelFont',
-            'O save atual sera apagado.\nTem certeza que deseja iniciar um novo jogo?', 16)
+            'O save atual será apagado.\nTem certeza que deseja iniciar um novo jogo?', 16)
             .setOrigin(0.5, 0.5).setDepth(62).setScrollFactor(0);
 
-        // opções
+        // Opções "Sim" e "Não"
         this.confirmOptSim = this.add.bitmapText(width / 2 - 50, height / 2 + 18, 'pixelFont', 'Sim', 16)
             .setOrigin(0.5).setDepth(62).setScrollFactor(0);
 
-        this.confirmOptNao = this.add.bitmapText(width / 2 + 50, height / 2 + 18, 'pixelFont', 'Nao', 16)
+        this.confirmOptNao = this.add.bitmapText(width / 2 + 50, height / 2 + 18, 'pixelFont', 'Não', 16)
             .setOrigin(0.5).setDepth(62).setScrollFactor(0);
 
-        // seta indicadora
-        this.confirmCursor = this.add.bitmapText(0, height / 2 + 18, 'pixelFont', '>', 16)
+        // seletor
+        this.confirmCursor = this.add.image(0, height / 2 + 20, 'selector')
             .setOrigin(0.5).setDepth(62).setScrollFactor(0);
+
+        //variável de controle para a posição do seletor
+        this.baseCursorX = 0;
+
+        // animação do seletor flutuando
+        this.confirmTween = this.tweens.addCounter({
+            from: 0, to: 360, duration: 1500, repeat: -1,
+            onUpdate: (tween) => {
+                if (!this.confirmCursor || !this.confirmCursor.active) return;
+                const angle = Phaser.Math.DegToRad(tween.getValue());
+                // Usa a variável baseCursorX e adiciona o balanço
+                this.confirmCursor.x = this.baseCursorX + Math.sin(angle) * 6;
+            }
+        });
 
         this.updateConfirmCursor();
         this.setupConfirmInputs();
@@ -253,12 +265,13 @@ export class Start extends Phaser.Scene {
 
     updateConfirmCursor() {
         const { width } = this.scale;
-        // posiciona a seta à esquerda da opção selecionada
+        
+        // posição base de onde o cursor deve flutuar (-20px para não encostar na letra)
         const xSim = width / 2 - 50;
         const xNao = width / 2 + 50;
-        this.confirmCursor.setX(this.confirmIndex === 0 ? xSim - 18 : xNao - 18);
+        this.baseCursorX = this.confirmIndex === 0 ? xSim - 26 : xNao - 26;
 
-        // destaca a opção ativa
+        // Pinta a opção selecionada de Branco e a outra de Cinza
         this.confirmOptSim.setTint(this.confirmIndex === 0 ? 0xffffff : 0x888888);
         this.confirmOptNao.setTint(this.confirmIndex === 1 ? 0xffffff : 0x888888);
     }
@@ -280,7 +293,7 @@ export class Start extends Phaser.Scene {
             }
         });
 
-        // navegação por mouse
+        // navegação por mouse 
         this.confirmOptSim.setInteractive({ useHandCursor: true })
             .on('pointerover', () => { this.confirmIndex = 0; this.updateConfirmCursor(); })
             .on('pointerdown', () => { this.confirmIndex = 0; this.resolveConfirm(); });
@@ -291,10 +304,10 @@ export class Start extends Phaser.Scene {
     }
 
     resolveConfirm() {
-        // remove os listeners de confirmação
+        if (this.confirmTween) this.confirmTween.remove();
+
         this.input.keyboard.removeAllListeners('keydown');
 
-        // destroi os elementos da tela de confirmação
         [this.confirmOverlay, this.confirmBox, this.confirmMsg,
          this.confirmOptSim, this.confirmOptNao, this.confirmCursor].forEach(o => o?.destroy());
 

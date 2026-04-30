@@ -32,6 +32,9 @@ export class Level_1 extends Phaser.Scene {
         this.load.audio("voice_i", "assets/audio/voices/voice1/voice_i.wav");
         this.load.audio("voice_o", "assets/audio/voices/voice1/voice_o.wav");
         this.load.audio("voice_u", "assets/audio/voices/voice1/voice_u.wav");
+        
+        //ui
+        this.load.image('menu_box', 'assets/ui/menu_box.png');
     }
 
     create(data) {

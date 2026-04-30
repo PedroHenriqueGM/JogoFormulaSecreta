@@ -15,32 +15,92 @@ export class PauseMenu extends Phaser.Scene {
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6)
             .setScrollFactor(0);
 
+        //caixa do menu
+        this.add.image(width / 2, height / 2, 'menu_box').setOrigin(0.5);
         //------- Título -------
-        this.add.text(width / 2, height / 2 - 40, "PAUSADO", {
-            fontSize: "14px",
-            fill: "#ffffff",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        // Tamanho 16 para manter a nitidez dos diálogos
+        this.add.bitmapText(width / 2, height / 2 - 40, 'pixelFont', "PAUSADO", 16)
+            .setOrigin(0.5);
+
+        // Lógica de Teclado
+        this.botoes = [];
+        this.selectedIndex = 0;
 
         //------- Botões (cada um em Y diferente) -------
-        this.criarBotao(width / 2, height / 2 - 15, "Continuar", () => this.continuar());
-        this.criarBotao(width / 2, height / 2 + 5,  "Salvar",    () => this.salvar());
-        this.criarBotao(width / 2, height / 2 + 25, "Opções",    () => this.opcoes());
-        this.criarBotao(width / 2, height / 2 + 45, "Sair",      () => this.sair());
+        // Criamos os botões com tamanho 16 e guardamos no array para navegação
+        this.botoes.push(this.criarBotao(width / 2, height / 2 - 15, "Continuar", () => this.continuar()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 5,  "Salvar",    () => this.salvar()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 25, "Opções",    () => this.opcoes()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 45, "Voltar ao Menu",      () => this.sair()));
+
+        // seletor
+        const selectorBaseX = (width / 2) - 54; 
+        this.selectorSprite = this.add.image(selectorBaseX, 0, 'selector').setDepth(20);
+
+        this.tweens.addCounter({
+            from: 0, to: 360, duration: 1500, repeat: -1,
+            onUpdate: (tween) => {
+                const angle = Phaser.Math.DegToRad(tween.getValue());
+                this.selectorSprite.x = selectorBaseX + Math.sin(angle) * 6;
+            }
+        });
+
+        // Controles de Teclado
+        this.input.keyboard.on('keydown', (event) => {
+            switch (event.code) {
+                case 'KeyW': case 'ArrowUp': this.mudarSelecao(-1); break;
+                case 'KeyS': case 'ArrowDown': this.mudarSelecao(1); break;
+                case 'Enter': case 'Space': this.confirmarSelecao(); break;
+            }
+        });
 
         //------- ESC fecha o menu -------
         this.input.keyboard.once("keydown-ESC", () => this.continuar());
+
+        // Inicializa o visual do menu (aplica as cores iniciais)
+        this.atualizarVisualMenu();
     }
 
     criarBotao(x, y, label, callback) {
-        const btn = this.add.text(x, y, label, {
-            fontSize: "10px",
-            fill: "#aaaaaa"
-        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        // bitmapText com tamanho 16 para evitar distorção de pixels
+        const btn = this.add.bitmapText(x, y, 'pixelFont', label, 16)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
 
-        btn.on("pointerover", () => btn.setStyle({ fill: "#ffffff" })); // clareia ao passar
-        btn.on("pointerout",  () => btn.setStyle({ fill: "#aaaaaa" })); // volta ao sair
-        btn.on("pointerdown", callback);                                 // executa ao clicar
+        btn.on("pointerover", () => {
+            this.selectedIndex = this.botoes.indexOf(btn); // sincroniza teclado/mouse
+            this.atualizarVisualMenu();
+        });
+        
+        btn.on("pointerout", () => {
+            this.atualizarVisualMenu();
+        });
+
+        btn.on("pointerdown", callback); // executa ao clicar
+
+        return btn;
+    }
+
+    mudarSelecao(direcao) {
+        const total = this.botoes.length;
+        this.selectedIndex = (this.selectedIndex + direcao + total) % total;
+        this.atualizarVisualMenu();
+    }
+
+    atualizarVisualMenu() {
+        this.botoes.forEach((btn, index) => {
+            if (index === this.selectedIndex) {
+                btn.setTint(0xffffff); // Branco puro para o selecionado
+                this.selectorSprite.setY(btn.y);
+            } else {
+                btn.setTint(0xaaaaaa); // Cinza para os desativados
+            }
+        });
+    }
+
+    confirmarSelecao() {
+        const botaoAtual = this.botoes[this.selectedIndex];
+        botaoAtual.emit('pointerdown');
     }
 
     continuar() {
@@ -50,7 +110,7 @@ export class PauseMenu extends Phaser.Scene {
     }
 
     salvar() {
-        // lê o estado atual da cena de origem (qualquer level)
+            // lê o estado atual da cena de origem (qualquer level)
         const cena = this.scene.get(this.origemCena);
         SaveManager.save({
             level:   this.origemCena,
@@ -59,12 +119,15 @@ export class PauseMenu extends Phaser.Scene {
             health:  cena.player.health
         });
 
-        // feedback visual temporário
-        const { width, height } = this.scale;
-        const msg = this.add.text(width / 2, height / 2 + 60, "✔ Jogo salvo!", {
-            fontSize: "8px",
-            fill: "#00ff88"
-        }).setOrigin(0.5);
+        // pega a posição do botão "Salvar"
+        const btnSalvar = this.botoes[1];
+
+        // cria o feedback ao lado direito do botão, com um  distanciamento (60px)
+        // setOrigin(0, 0.5) para o texto começar no ponto X e crescer para a direita
+        const msg = this.add.bitmapText(btnSalvar.x + 19, btnSalvar.y, 'pixelFont', "Jogo salvo!", 16)
+            .setOrigin(0, 0.5) 
+            .setTint(0x00ff88);
+            
         this.time.delayedCall(1500, () => msg.destroy());
     }
 
