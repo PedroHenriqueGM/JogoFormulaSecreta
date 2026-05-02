@@ -31,6 +31,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.isKnockedBack = false;
         this.knockbackSpeed = 150;
         this.knockbackTime = 180;
+
+        // ── Sistema de pedras ─────────────────────────────────────────
+        // Quantidade de pedras que o player carrega no momento
+        this.stonesCarried = 0;
+
+        // Quantidade máxima de pedras que pode carregar
+        this.maxStones = 3;
     }
 
     update(cursors, keys, canMove) {
@@ -75,14 +82,39 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             this.setVelocityY(this.speed);
             this.anims.play(`${texKey}_walk_down`, true);
             this.lastDirection = 'down';
-        } 
-        else {
+        } else {
             this.x = Math.round(this.x);
             this.y = Math.round(this.y);
 
             // repouso baseado na última direção
             AnimationManager.handleIdle(this);
         }
+    }
+
+    // ----------------------------------------------------------
+    // collectStone()
+    //   Chamado pela cena quando o player aperta E perto de uma pedra.
+    //   Incrementa o contador de pedras se ainda houver espaço.
+    //   Retorna true se conseguiu coletar, false se já está cheio.
+    // ----------------------------------------------------------
+    collectStone() {
+        if (this.stonesCarried >= this.maxStones) return false; // inventário cheio
+
+        this.stonesCarried++;
+        return true; // coletou com sucesso
+    }
+
+    // ----------------------------------------------------------
+    // canThrowStone()
+    //   Verifica se o player tem pedras para arremessar.
+    //   Chamado antes de criar o projétil na cena.
+    //   Retorna true e decrementa o contador se puder arremessar.
+    // ----------------------------------------------------------
+    canThrowStone() {
+        if (this.stonesCarried <= 0) return false; // sem pedras
+
+        this.stonesCarried--;
+        return true; // pode arremessar
     }
 
     takeDamage(amount, shouldKnockback = false, shouldSlow = false) {

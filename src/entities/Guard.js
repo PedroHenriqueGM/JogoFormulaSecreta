@@ -41,6 +41,24 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         this.spawnX = x; // onde ele nasceu
         this.spawnY = y; 
         this.patrolRange = range; // o quanto ele pode se afastar do ponto de spawn (se tiver limites de movimento)
+
+        // ── Sistema de estados ─────────────────────────────────────────
+        // 'patrolling'   → comportamento normal de patrulha (padrão)
+        // 'investigating'→ guarda ouviu barulho e vai checar o local
+        // 'returning'    → guarda verificou o local e está voltando ao spawn
+        this.state = 'patrolling';
+
+        // Destino da investigação (onde a pedra caiu)
+        this.investigateTarget = null;
+
+        // Quanto tempo (ms) o guarda fica parado no local antes de voltar
+        this.investigateDuration = 2500;
+
+        // Flag para evitar disparar o timer de investigação múltiplas vezes
+        this.investigateTimerActive = false;
+
+        // Distância (pixels) para considerar que chegou ao destino
+        this.arriveThreshold = 12;
     }
 
     // normaliza as direções permitidas, aceitando termos como "horizontal", "vertical", "all" e traduções
@@ -98,19 +116,126 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         return directions[directionName].clone();
     }
 
+    // ----------------------------------------------------------
+    // investigate(x, y)
+    //   Chamado pela cena quando uma pedra pousa perto do guarda.
+    //   Muda o estado para 'investigating' e define o destino.
+    // ----------------------------------------------------------
+    investigate(x, y) {
+        // Ignora se já está investigando ou retornando
+        // (evita que uma segunda pedra interrompa a primeira investigação)
+        if (this.state !== 'patrolling') return;
+
+        // Define o destino da investigação
+        this.investigateTarget = { x, y };
+
+        // Muda o estado
+        this.state = 'investigating';
+
+        // Reseta o flag do timer para poder disparar ao chegar
+        this.investigateTimerActive = false;
+    }
+
     update() {
 
         if (!this.isActive) return; // trava tudo
 
-        this.moveFree();
-        this.handleCollision();
-        this.updateVisionCone();
-        this.handleAnimations();
+        // ── Roteamento por estado ──────────────────────────────────────
+        if (this.state === 'patrolling') {
+            // Comportamento original de patrulha
+            this.moveFree();
+            this.handleCollision();
 
+        } else if (this.state === 'investigating') {
+            // Move o guarda em direção ao ponto de impacto da pedra
+            this.moveTowardsTarget(this.investigateTarget);
+
+            // Checa se chegou ao destino
+            const dist = Phaser.Math.Distance.Between(
+                this.x, this.y,
+                this.investigateTarget.x, this.investigateTarget.y
+            );
+
+            if (dist <= this.arriveThreshold && !this.investigateTimerActive) {
+                // Chegou! Para o guarda e aguarda antes de retornar
+                this.investigateTimerActive = true;
+                this.body.setVelocity(0, 0);
+
+                // Após investigateDuration ms, começa a voltar
+                this.scene.time.delayedCall(this.investigateDuration, () => {
+                    // Verifica se o guarda ainda existe e está investigando
+                    if (this.active && this.state === 'investigating') {
+                        this.state = 'returning';
+                        this.investigateTimerActive = false;
+                    }
+                });
+            }
+
+        } else if (this.state === 'returning') {
+            // Move o guarda de volta ao ponto de spawn original
+            this.moveTowardsTarget({ x: this.spawnX, y: this.spawnY });
+
+            // Checa se chegou ao spawn
+            const distToSpawn = Phaser.Math.Distance.Between(
+                this.x, this.y,
+                this.spawnX, this.spawnY
+            );
+
+            if (distToSpawn <= this.arriveThreshold) {
+                // Voltou ao spawn, retoma a patrulha normal
+                this.state = 'patrolling';
+                this.investigateTarget = null;
+
+                // Redefine uma direção aleatória para a patrulha
+                this.direction = this.getRandomAllowedDirection();
+            }
+        }
+
+        // \u2500\u2500 Detecção do player em TODOS os estados \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        // O guarda continua enxergando mesmo quando está investigando ou
+        // voltando ao spawn — ele tem olhos independente do que está fazendo
         const seen = this.checkPlayerInSight(this.targetPlayer);
-    
         if (seen) {
             this.scene.events.emit('seen');
+        }
+
+        // Atualiza visualmente o cone e as animações em todos os estados
+        this.updateVisionCone();
+        this.handleAnimations();
+    }
+
+    // ----------------------------------------------------------
+    // moveTowardsTarget(target)
+    //   Move o guarda em direção a um ponto {x, y} usando velocidade.
+    //   Usado tanto para investigar quanto para retornar ao spawn.
+    // ----------------------------------------------------------
+    moveTowardsTarget(target) {
+        // Calcula o vetor de direção normalizado até o alvo
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+
+        // Evita dividir por zero se já estiver no destino
+        if (len < 1) {
+            this.body.setVelocity(0, 0);
+            return;
+        }
+
+        // Normaliza e aplica a velocidade
+        const normX = dx / len;
+        const normY = dy / len;
+
+        this.body.setVelocity(normX * this.speed, normY * this.speed);
+
+        // Atualiza o facing para as animações ficarem corretas
+        this.facing = new Phaser.Math.Vector2(normX, normY).normalize();
+
+        // Atualiza lastDirection baseado na direção predominante
+        // (usado pelo handleAnimations)
+        if (Math.abs(normX) > Math.abs(normY)) {
+            this.direction = new Phaser.Math.Vector2(normX > 0 ? 1 : -1, 0);
+        } else {
+            this.direction = new Phaser.Math.Vector2(0, normY > 0 ? 1 : -1);
         }
     }
 
