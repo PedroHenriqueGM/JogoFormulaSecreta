@@ -26,6 +26,9 @@ export class Level_1 extends Phaser.Scene {
         frameHeight: 32,
         });
 
+        //carregando coracoes e pedra
+        this.load.spritesheet('hearts', 'assets/ui/hearts.png', { frameWidth: 14, frameHeight: 12 });
+
         // audio
         this.load.audio("level1", "assets/audio/level1.wav");
         this.load.audio("voice_a", "assets/audio/voices/voice1/voice_a.wav");
@@ -95,51 +98,41 @@ export class Level_1 extends Phaser.Scene {
         this.player = new Player(this, spawnX, spawnY, "young_niccolo");
         this.physics.add.collider(this.player, walls);
 
-        this.healthText = this.add
-        .text(16, 16, `❤️ ${this.player.health}/${this.player.maxHealth}`, {
-            fontSize: "16px",
-            fill: "#ffffff",
-        })
-        .setScrollFactor(0) // fixa na tela
-        .setDepth(100); // fica por cima de tudo
+        //desenho dos coraçoes na tela
+        this.heartsGroup = []; 
+        // Se a vida máxima for 6, isso vai criar 3 corações
+        const maxHearts = Math.floor(this.player.maxHealth / 2); 
+        
+        for (let i = 0; i < maxHearts; i++) {
+            // posiciona um do lado do outro (espaçamento de 18 pixels)
+            const heart = this.add.sprite(16 + (i * 18), 16, 'hearts', 2) 
+                .setScrollFactor(0) // Fixo na tela
+                .setDepth(100)
+                .setOrigin(0, 0); // Ancorado pelo topo-esquerdo
+                
+            this.heartsGroup.push(heart);
+        }
+
+        this.updateHeartsHUD();
 
         // ── HUD de pedras ────────────────────────────────────────────
-        // Texto que mostra quantas pedras o player está carregando
-        this.stonesText = this.add
-        .text(16, 36, `🪨 ${this.player.stonesCarried}/${this.player.maxStones}`, {
-            fontSize: "16px",
-            fill: "#cccccc",
-        })
-        .setScrollFactor(0) // fixo na tela
-        .setDepth(100);
+        this.stonesText = this.add.bitmapText(16, 36, 'pixelFont', `Pedras: ${this.player.stonesCarried}/${this.player.maxStones}`, 16)
+            .setTint(0xcccccc)  // Aplica a cor cinza
+            .setScrollFactor(0) 
+            .setDepth(100);
 
         // ── Prompt de coleta: [E] Pegar ──────────────────────────────
-        // Texto que flutua acima da pedra mais próxima quando o player pode coletar
-        // Começa invisível e só aparece quando o player entra no raio de coleta
-        this.collectPrompt = this.add
-        .text(0, 0, '[E] Pegar', {
-            fontSize: '12px',
-            fill: '#ffffff',
-            backgroundColor: '#000000aa', // fundo preto semitransparente
-            padding: { x: 4, y: 2 },
-        })
-        .setOrigin(0.5, 1)   // ancorado pelo centro-base (fica acima da pedra)
-        .setDepth(200)        // na frente de tudo
-        .setVisible(false);   // começa escondido
+        this.collectPrompt = this.add.bitmapText(0, 0, 'pixelFont', '[E] Pegar', 16)
+            .setOrigin(0.5, 1)   // ancorado pelo centro-base (fica acima da pedra)
+            .setDepth(200)       // na frente de tudo
+            .setVisible(false);  // começa escondido
 
         // ── Prompt de arremesso: [F] Lançar ───────────────────────────
-        // Texto fixo na HUD que aparece quando o player tem pedras no inventário
-        // Começa invisível e atualiza junto com o stonesCarried
-        this.throwPrompt = this.add
-        .text(16, 56, '[F] Segure para mirar', {
-            fontSize: '11px',
-            fill: '#ffdd88',           // amarelo suave
-            backgroundColor: '#000000aa',
-            padding: { x: 4, y: 2 },
-        })
-        .setScrollFactor(0)  // fixo na tela
-        .setDepth(100)
-        .setVisible(false);  // começa escondido
+        this.throwPrompt = this.add.bitmapText(16, 56, 'pixelFont', '[F] Segure para mirar', 16)
+            .setTint(0xffdd88)   // Aplica o amarelo suave
+            .setScrollFactor(0)  // fixo na tela
+            .setDepth(100)
+            .setVisible(false);  // começa escondido
 
         // ── Trajetória de mira (Graphics no mundo) ──────────────────────
         // Objeto Graphics reutilizável que redesenha os pontos da trajetória
@@ -264,9 +257,6 @@ export class Level_1 extends Phaser.Scene {
             if (save) {
                 this.player.setPosition(save.playerX, save.playerY);
                 this.player.health = save.health;
-                this.healthText.setText(
-                    `❤️ ${this.player.health}/${this.player.maxHealth}`,
-                ); 
             }
             if (!this.bgMusic.isPlaying) this.bgMusic.play();
             this.bgMusic.setVolume(0.5);
@@ -304,6 +294,8 @@ export class Level_1 extends Phaser.Scene {
     update() {
         if (!this.canMove) return;
         this.player.update(this.cursors, this.keys, this.canMove);
+
+        this.updateHeartsHUD();
 
         this.guardsGroup.getChildren().forEach((guard) => {
         guard.update();
@@ -541,7 +533,7 @@ export class Level_1 extends Phaser.Scene {
     // ----------------------------------------------------------
     updateStonesHUD() {
         if (this.stonesText) {
-            this.stonesText.setText(`🪨 ${this.player.stonesCarried}/${this.player.maxStones}`);
+            this.stonesText.setText(`Pedras: ${this.player.stonesCarried}/${this.player.maxStones}`);
         }
     }
 
@@ -616,6 +608,8 @@ export class Level_1 extends Phaser.Scene {
 
         this.canMove = false;
 
+        this.updateHeartsHUD();
+
         this.player.setVelocity(0);
         this.player.setTint(0xff0000);
 
@@ -644,5 +638,25 @@ export class Level_1 extends Phaser.Scene {
             this.scene.restart({ isRestart: true });
         },
         );
+    }
+
+    //logica de vida/coraçoes
+    updateHeartsHUD() {
+        const health = this.player.health;
+
+        this.heartsGroup.forEach((heart, index) => {
+            const heartValue = index * 2; 
+
+            if (health >= heartValue + 2) {
+                // vida cheua
+                heart.setFrame(0); 
+            } else if (health === heartValue + 1) {
+                // metade
+                heart.setFrame(1); 
+            } else {
+                // vazio
+                heart.setFrame(2); 
+            }
+        });
     }
 }
