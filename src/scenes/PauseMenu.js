@@ -31,19 +31,7 @@ export class PauseMenu extends Phaser.Scene {
         this.botoes.push(this.criarBotao(width / 2, height / 2 - 15, "Continuar", () => this.continuar()));
         this.botoes.push(this.criarBotao(width / 2, height / 2 + 5,  "Salvar",    () => this.salvar()));
         this.botoes.push(this.criarBotao(width / 2, height / 2 + 25, "Opções",    () => this.opcoes()));
-        this.botoes.push(this.criarBotao(width / 2, height / 2 + 45, "Voltar ao Menu",      () => this.sair()));
-
-        // seletor
-        const selectorBaseX = (width / 2) - 54; 
-        this.selectorSprite = this.add.image(selectorBaseX, 0, 'selector').setDepth(20);
-
-        this.tweens.addCounter({
-            from: 0, to: 360, duration: 1500, repeat: -1,
-            onUpdate: (tween) => {
-                const angle = Phaser.Math.DegToRad(tween.getValue());
-                this.selectorSprite.x = selectorBaseX + Math.sin(angle) * 6;
-            }
-        });
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 45, "Sair",      () => this.sair()));
 
         // Controles de Teclado
         this.input.keyboard.on('keydown', (event) => {
@@ -91,7 +79,6 @@ export class PauseMenu extends Phaser.Scene {
         this.botoes.forEach((btn, index) => {
             if (index === this.selectedIndex) {
                 btn.setTint(0xffffff); // Branco puro para o selecionado
-                this.selectorSprite.setY(btn.y);
             } else {
                 btn.setTint(0xaaaaaa); // Cinza para os desativados
             }
@@ -119,13 +106,10 @@ export class PauseMenu extends Phaser.Scene {
             health:  cena.player.health
         });
 
-        // pega a posição do botão "Salvar"
-        const btnSalvar = this.botoes[1];
-
-        // cria o feedback ao lado direito do botão, com um  distanciamento (60px)
-        // setOrigin(0, 0.5) para o texto começar no ponto X e crescer para a direita
-        const msg = this.add.bitmapText(btnSalvar.x + 19, btnSalvar.y, 'pixelFont', "Jogo salvo!", 16)
-            .setOrigin(0, 0.5) 
+        // feedback visual temporário com bitmapText nítido
+        const { width, height } = this.scale;
+        const msg = this.add.bitmapText(width / 2, height / 2 + 60, 'pixelFont', "✔ Jogo salvo!", 16)
+            .setOrigin(0.5)
             .setTint(0x00ff88);
             
         this.time.delayedCall(1500, () => msg.destroy());
