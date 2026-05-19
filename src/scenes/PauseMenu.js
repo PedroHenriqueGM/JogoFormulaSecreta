@@ -15,6 +15,8 @@ export class PauseMenu extends Phaser.Scene {
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6)
             .setScrollFactor(0);
 
+        //caixa do menu
+        this.add.image(width / 2, height / 2, 'menu_box').setOrigin(0.5);
         //------- Título -------
         // Tamanho 16 para manter a nitidez dos diálogos
         this.add.bitmapText(width / 2, height / 2 - 40, 'pixelFont', "PAUSADO", 16)
@@ -95,7 +97,7 @@ export class PauseMenu extends Phaser.Scene {
     }
 
     salvar() {
-        // lê o estado atual da cena de origem (qualquer level)
+            // lê o estado atual da cena de origem (qualquer level)
         const cena = this.scene.get(this.origemCena);
         SaveManager.save({
             level:   this.origemCena,
