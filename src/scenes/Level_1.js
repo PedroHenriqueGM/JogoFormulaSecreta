@@ -26,8 +26,9 @@ export class Level_1 extends Phaser.Scene {
         frameHeight: 32,
         });
 
-        //carregando coracoes e pedra
         this.load.spritesheet('hearts', 'assets/ui/hearts.png', { frameWidth: 14, frameHeight: 12 });
+        this.load.spritesheet("npc_fugitivo", "assets/entities/npc_fugitivo.png", { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet("fire_anim", "assets/entities/fire_anim.png", { frameWidth: 32, frameHeight: 32 });
 
         // audio
         this.load.audio("level1", "assets/audio/level1.wav");
@@ -84,10 +85,50 @@ export class Level_1 extends Phaser.Scene {
         const tileset = map.addTilesetImage("tileset_1", "tileset");
 
         const ground = map.createLayer("Tile Layer 3", tileset, 0, 0);
+        
+        const objetos = map.createLayer("Objetos", tileset, 0, 0);
+        if (objetos) {
+            objetos.setDepth(5);
+            objetos.setCollisionByExclusion([-1, 0]);
+        }
+
         const walls = map.createLayer("Tile Layer 2", tileset, 0, 0);
         const fire = map.createLayer("Fogo", tileset, 0, 0);
+        
+        const fireSurprise = map.createLayer("FogoSurpresa", tileset, 0, 0); 
+        this.fireSurpriseLayer = fireSurprise;
+
+        this.anims.create({
+            key: 'fire_burning',
+            frames: this.anims.generateFrameNumbers('fire_anim', { start: 0, end: 1 }),
+            frameRate: 6,
+            repeat: -1
+        });
+
+        const replaceFireWithSprite = (layer, isSurprise) => {
+            if (!layer) return;
+            layer.forEachTile(tile => {
+                if (tile && tile.index !== -1) {
+                    const sprite = this.add.sprite(tile.pixelX + 16, tile.pixelY + 16, 'fire_anim');
+                    sprite.play('fire_burning');
+                    sprite.setDepth(4); 
+
+                    if (isSurprise) {
+                        sprite.setAlpha(0); 
+                        tile.isHiddenFire = true; 
+                    }
+
+                    tile.animatedSprite = sprite; 
+                    tile.alpha = 0; 
+                }
+            });
+        };
+
+        replaceFireWithSprite(fire, false);
+        replaceFireWithSprite(fireSurprise, true);
 
         this.wallsLayer = walls;
+
         // A propriedade "collider" está na layer do Tiled, não em cada tile.
         // Como esta layer representa as paredes, marcamos todo tile visível como colidível.
         walls.setCollisionByExclusion([-1, 0]);
@@ -97,6 +138,9 @@ export class Level_1 extends Phaser.Scene {
         // player
         this.player = new Player(this, spawnX, spawnY, "young_niccolo");
         this.physics.add.collider(this.player, walls);
+        if (objetos) {
+            this.physics.add.collider(this.player, objetos);
+        }
 
         //desenho dos coraçoes na tela
         this.heartsGroup = []; 
@@ -171,6 +215,28 @@ export class Level_1 extends Phaser.Scene {
         this.guardsGroup.add(guard2);
 
         this.physics.add.collider(this.guardsGroup, walls);
+        if (objetos) {
+            this.physics.add.collider(this.guardsGroup, objetos);
+        }
+
+        this.npcsGroup = this.physics.add.group();
+        this.physics.add.collider(this.npcsGroup, walls);
+        if (objetos) {
+            this.physics.add.collider(this.npcsGroup, objetos);
+        }
+
+        const npcPositions = [
+            { x: 300, y: 950 },
+            { x: 350, y: 900 },
+            { x: 400, y: 980 }
+        ];
+
+        npcPositions.forEach(pos => {
+            const npc = this.npcsGroup.create(pos.x, pos.y, 'npc_fugitivo');
+            npc.setBounce(1); 
+            npc.setCollideWorldBounds(true); 
+            npc.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+        });
 
         // ── Sistema de Pedras ────────────────────────────────────────────
 
@@ -296,6 +362,25 @@ export class Level_1 extends Phaser.Scene {
         this.player.update(this.cursors, this.keys, this.canMove);
 
         this.updateHeartsHUD();
+        
+        if (this.fireSurpriseLayer) {
+            const tileX = this.fireSurpriseLayer.worldToTileX(this.player.x);
+            const tileY = this.fireSurpriseLayer.worldToTileY(this.player.y);
+
+            for (let x = tileX - 1; x <= tileX + 1; x++) {
+                for (let y = tileY - 1; y <= tileY + 1; y++) {
+                    const tile = this.fireSurpriseLayer.getTileAt(x, y);
+                    
+                    if (tile && tile.index !== -1 && tile.isHiddenFire) {
+                        tile.isHiddenFire = false; 
+                        
+                        if (tile.animatedSprite) {
+                            tile.animatedSprite.setAlpha(1); 
+                        }
+                    }
+                }
+            }
+        }
 
         this.guardsGroup.getChildren().forEach((guard) => {
         guard.update();
@@ -329,12 +414,17 @@ export class Level_1 extends Phaser.Scene {
         this.updatePrompts();
 
         // verifica se o player está em um tile de fogo
-        const tileFire = this.fireLayer.getTileAtWorldXY(
-        this.player.x,
-        this.player.y,
-        );
-        if (tileFire && tileFire.properties.isFire) {
-        this.player.takeDamage(1, true, true);
+        const tileFire = this.fireLayer.getTileAtWorldXY(this.player.x, this.player.y);
+        let tileSurpriseFire = null;
+        if (this.fireSurpriseLayer) {
+            tileSurpriseFire = this.fireSurpriseLayer.getTileAtWorldXY(this.player.x, this.player.y);
+        }
+
+        const tomouDanoNormal = tileFire && tileFire.index !== -1;
+        const tomouDanoSurpresa = tileSurpriseFire && tileSurpriseFire.index !== -1;
+
+        if (tomouDanoNormal || tomouDanoSurpresa) {
+            this.player.takeDamage(1, true, true);
         }
     }
 
