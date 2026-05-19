@@ -16,31 +16,76 @@ export class PauseMenu extends Phaser.Scene {
             .setScrollFactor(0);
 
         //------- Título -------
-        this.add.text(width / 2, height / 2 - 40, "PAUSADO", {
-            fontSize: "14px",
-            fill: "#ffffff",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        // Tamanho 16 para manter a nitidez dos diálogos
+        this.add.bitmapText(width / 2, height / 2 - 40, 'pixelFont', "PAUSADO", 16)
+            .setOrigin(0.5);
+
+        // Lógica de Teclado
+        this.botoes = [];
+        this.selectedIndex = 0;
 
         //------- Botões (cada um em Y diferente) -------
-        this.criarBotao(width / 2, height / 2 - 15, "Continuar", () => this.continuar());
-        this.criarBotao(width / 2, height / 2 + 5,  "Salvar",    () => this.salvar());
-        this.criarBotao(width / 2, height / 2 + 25, "Opções",    () => this.opcoes());
-        this.criarBotao(width / 2, height / 2 + 45, "Sair",      () => this.sair());
+        // Criamos os botões com tamanho 16 e guardamos no array para navegação
+        this.botoes.push(this.criarBotao(width / 2, height / 2 - 15, "Continuar", () => this.continuar()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 5,  "Salvar",    () => this.salvar()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 25, "Opções",    () => this.opcoes()));
+        this.botoes.push(this.criarBotao(width / 2, height / 2 + 45, "Sair",      () => this.sair()));
+
+        // Controles de Teclado
+        this.input.keyboard.on('keydown', (event) => {
+            switch (event.code) {
+                case 'KeyW': case 'ArrowUp': this.mudarSelecao(-1); break;
+                case 'KeyS': case 'ArrowDown': this.mudarSelecao(1); break;
+                case 'Enter': case 'Space': this.confirmarSelecao(); break;
+            }
+        });
 
         //------- ESC fecha o menu -------
         this.input.keyboard.once("keydown-ESC", () => this.continuar());
+
+        // Inicializa o visual do menu (aplica as cores iniciais)
+        this.atualizarVisualMenu();
     }
 
     criarBotao(x, y, label, callback) {
-        const btn = this.add.text(x, y, label, {
-            fontSize: "10px",
-            fill: "#aaaaaa"
-        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        // bitmapText com tamanho 16 para evitar distorção de pixels
+        const btn = this.add.bitmapText(x, y, 'pixelFont', label, 16)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
 
-        btn.on("pointerover", () => btn.setStyle({ fill: "#ffffff" })); // clareia ao passar
-        btn.on("pointerout",  () => btn.setStyle({ fill: "#aaaaaa" })); // volta ao sair
-        btn.on("pointerdown", callback);                                 // executa ao clicar
+        btn.on("pointerover", () => {
+            this.selectedIndex = this.botoes.indexOf(btn); // sincroniza teclado/mouse
+            this.atualizarVisualMenu();
+        });
+        
+        btn.on("pointerout", () => {
+            this.atualizarVisualMenu();
+        });
+
+        btn.on("pointerdown", callback); // executa ao clicar
+
+        return btn;
+    }
+
+    mudarSelecao(direcao) {
+        const total = this.botoes.length;
+        this.selectedIndex = (this.selectedIndex + direcao + total) % total;
+        this.atualizarVisualMenu();
+    }
+
+    atualizarVisualMenu() {
+        this.botoes.forEach((btn, index) => {
+            if (index === this.selectedIndex) {
+                btn.setTint(0xffffff); // Branco puro para o selecionado
+            } else {
+                btn.setTint(0xaaaaaa); // Cinza para os desativados
+            }
+        });
+    }
+
+    confirmarSelecao() {
+        const botaoAtual = this.botoes[this.selectedIndex];
+        botaoAtual.emit('pointerdown');
     }
 
     continuar() {
@@ -59,12 +104,12 @@ export class PauseMenu extends Phaser.Scene {
             health:  cena.player.health
         });
 
-        // feedback visual temporário
+        // feedback visual temporário com bitmapText nítido
         const { width, height } = this.scale;
-        const msg = this.add.text(width / 2, height / 2 + 60, "✔ Jogo salvo!", {
-            fontSize: "8px",
-            fill: "#00ff88"
-        }).setOrigin(0.5);
+        const msg = this.add.bitmapText(width / 2, height / 2 + 60, 'pixelFont', "✔ Jogo salvo!", 16)
+            .setOrigin(0.5)
+            .setTint(0x00ff88);
+            
         this.time.delayedCall(1500, () => msg.destroy());
     }
 
