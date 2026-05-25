@@ -3,29 +3,23 @@ import { Guard } from "../entities/Guard.js";
 import { Player } from "../entities/Player.js";
 import { AnimationManager } from "../managers/AnimationManager.js";
 import { SaveManager } from "../managers/SaveManager.js";
-import { Stone } from "../entities/Stone.js"; // sistema de pedras para distração de guardas
+import { Stone } from "../entities/Stone.js";
 
 export class Level_1 extends Phaser.Scene {
+    // construtor da cena
     constructor() {
         super("Level_1");
     }
 
+    // carrega tudo que a fase vai precisar antes de começar
     preload() {
-        // carregando mapa tilemap
+        // mapas
         this.load.image("tileset", "assets/maps/tileset_1.png");
         this.load.tilemapTiledJSON("level_1_map", "assets/maps/map_1.json");
 
-        // carregando sprites
-        this.load.spritesheet(
-        "young_niccolo",
-        "assets/entities/young_niccolo.png",
-        { frameWidth: 32, frameHeight: 32 },
-        );
-        this.load.spritesheet("guard", "assets/entities/guard.png", {
-        frameWidth: 32,
-        frameHeight: 32,
-        });
-
+        // sprites
+        this.load.spritesheet("young_niccolo", "assets/entities/young_niccolo.png", { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet("guard", "assets/entities/guard.png", { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('hearts', 'assets/ui/hearts.png', { frameWidth: 14, frameHeight: 12 });
         this.load.spritesheet("npc_fugitivo", "assets/entities/npc_fugitivo.png", { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet("fire_anim", "assets/entities/fire_anim.png", { frameWidth: 32, frameHeight: 32 });
@@ -38,49 +32,35 @@ export class Level_1 extends Phaser.Scene {
         this.load.audio("voice_o", "assets/audio/voices/voice1/voice_o.wav");
         this.load.audio("voice_u", "assets/audio/voices/voice1/voice_u.wav");
         
-        //ui
+        // ui e itens
         this.load.image('menu_box', 'assets/ui/menu_box.png');
+        this.load.image('stone', 'assets/ui/stone.png');
     }
 
-    // ----------------------------------------------------------
-    // Gera a textura da pedra via Phaser Graphics (sem precisar de imagem)
-    // Chamado no create() antes de criar as pedras no mapa
-    // ----------------------------------------------------------
-    createStoneTexture() {
-        // Só cria a textura se ainda não existir (evita duplicatas no restart)
-        if (this.textures.exists('stone')) return;
-
-        // Cria um canvas de 16x16 e desenha um círculo cinza
-        const g = this.make.graphics({ x: 0, y: 0, add: false });
-        g.fillStyle(0x888888, 1);   // cinza médio
-        g.fillCircle(8, 8, 6);      // círculo de raio 6 dentro do canvas 16x16
-        g.fillStyle(0x555555, 0.5); // sombra escura
-        g.fillEllipse(8, 13, 10, 4); // sombra oval abaixo da pedra
-        g.generateTexture('stone', 16, 16); // gera a textura com o nome 'stone'
-        g.destroy(); // limpa o graphics temporário
-    }
-
+    // cria os elementos na tela
     create(data) {
         const { width, height } = this.scale;
         const spawnX = 32;
         const spawnY = 1024;
 
-        // Tecla ESC para abrir o pause
+        // esc para abrir o pause
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         this.input.keyboard.on("keydown-ESC", () => {
-            if(!this.canMove) return; //não abre durante cutscene/diálogo
+            if(!this.canMove) return; 
             this.scene.pause();
             this.scene.launch("PauseMenu", { origemCena: this.scene.key });
         })
 
+        // config da musica
         this.bgMusic = this.sound.get("level1");
         if (!this.bgMusic) {
-        this.bgMusic = this.sound.add("level1", { loop: true, volume: 0 });
+            this.bgMusic = this.sound.add("level1", { loop: true, volume: 0 });
         }
 
         this.dialogue = new DialogueManager(this);
         this.canMove = false;
 
+        // carrega o mapa do tiled
         const map = this.make.tilemap({ key: "level_1_map" });
         const tileset = map.addTilesetImage("tileset_1", "tileset");
 
@@ -98,6 +78,7 @@ export class Level_1 extends Phaser.Scene {
         const fireSurprise = map.createLayer("FogoSurpresa", tileset, 0, 0); 
         this.fireSurpriseLayer = fireSurprise;
 
+        //animação do fogo
         this.anims.create({
             key: 'fire_burning',
             frames: this.anims.generateFrameNumbers('fire_anim', { start: 0, end: 1 }),
@@ -105,6 +86,7 @@ export class Level_1 extends Phaser.Scene {
             repeat: -1
         });
 
+        //troca o bloco de fogo do tiled pela animaçao
         const replaceFireWithSprite = (layer, isSurprise) => {
             if (!layer) return;
             layer.forEachTile(tile => {
@@ -124,93 +106,82 @@ export class Level_1 extends Phaser.Scene {
             });
         };
 
+        // aplica animaçao nas duas camadas de fogo
         replaceFireWithSprite(fire, false);
         replaceFireWithSprite(fireSurprise, true);
 
         this.wallsLayer = walls;
-
-        // A propriedade "collider" está na layer do Tiled, não em cada tile.
-        // Como esta layer representa as paredes, marcamos todo tile visível como colidível.
         walls.setCollisionByExclusion([-1, 0]);
 
         this.fireLayer = fire;
 
-        // player
+        // cria o player e a colisão
         this.player = new Player(this, spawnX, spawnY, "young_niccolo");
         this.physics.add.collider(this.player, walls);
         if (objetos) {
             this.physics.add.collider(this.player, objetos);
         }
 
-        //desenho dos coraçoes na tela
+        // cria os coraçoes da vida na tela
         this.heartsGroup = []; 
-        // Se a vida máxima for 6, isso vai criar 3 corações
         const maxHearts = Math.floor(this.player.maxHealth / 2); 
         
         for (let i = 0; i < maxHearts; i++) {
-            // posiciona um do lado do outro (espaçamento de 18 pixels)
             const heart = this.add.sprite(16 + (i * 18), 16, 'hearts', 2) 
-                .setScrollFactor(0) // Fixo na tela
+                .setScrollFactor(0)
                 .setDepth(100)
-                .setOrigin(0, 0); // Ancorado pelo topo-esquerdo
+                .setOrigin(0, 0);
                 
             this.heartsGroup.push(heart);
         }
 
         this.updateHeartsHUD();
 
-        // ── HUD de pedras ────────────────────────────────────────────
-        this.stonesText = this.add.bitmapText(16, 36, 'pixelFont', `Pedras: ${this.player.stonesCarried}/${this.player.maxStones}`, 16)
-            .setTint(0xcccccc)  // Aplica a cor cinza
-            .setScrollFactor(0) 
-            .setDepth(100);
-
-        // ── Prompt de coleta: [E] Pegar ──────────────────────────────
-        this.collectPrompt = this.add.bitmapText(0, 0, 'pixelFont', '[E] Pegar', 16)
-            .setOrigin(0.5, 1)   // ancorado pelo centro-base (fica acima da pedra)
-            .setDepth(200)       // na frente de tudo
-            .setVisible(false);  // começa escondido
-
-        // ── Prompt de arremesso: [F] Lançar ───────────────────────────
-        this.throwPrompt = this.add.bitmapText(16, 56, 'pixelFont', '[F] Segure para mirar', 16)
-            .setTint(0xffdd88)   // Aplica o amarelo suave
-            .setScrollFactor(0)  // fixo na tela
+        // ui das pedras (icone + texto)
+        this.stoneIcon = this.add.image(16, 36, 'stone')
+            .setOrigin(0, 0)
+            .setScrollFactor(0)
             .setDepth(100)
-            .setVisible(false);  // começa escondido
+            .setVisible(false);
 
-        // ── Trajetória de mira (Graphics no mundo) ──────────────────────
-        // Objeto Graphics reutilizável que redesenha os pontos da trajetória
-        // a cada frame enquanto F está pressionado. Não é fixo na HUD —
-        // fica no espaço do mundo e a câmera já cuida do scroll.
+        this.stonesText = this.add.bitmapText(36, 35, 'pixelFont', 'x 0', 16)
+            .setTint(0xcccccc) 
+            .setScrollFactor(0) 
+            .setDepth(100)
+            .setVisible(false);
+
+        this.updateStonesHUD();
+
+        // aviso de apertar E pra pegar
+        this.collectPrompt = this.add.bitmapText(0, 0, 'pixelFont', '[E] Pegar', 16)
+            .setOrigin(0.5, 1) 
+            .setDepth(200)       
+            .setVisible(false);  
+
+        // aviso de apertar F pra mirar
+        this.throwPrompt = this.add.bitmapText(16, 56, 'pixelFont', '[F] Segure para mirar', 16)
+            .setTint(0xffdd88)  
+            .setScrollFactor(0) 
+            .setDepth(100)
+            .setVisible(false); 
+
+        // graficos do rastro da pedra
         this.trajectoryGraphics = this.add.graphics();
-        this.trajectoryGraphics.setDepth(150); // acima das pedras (8) e abaixo dos prompts (200)
+        this.trajectoryGraphics.setDepth(150); 
 
-        // grupo e guardas
+        // cria o grupo de guardas
         this.guardsGroup = this.physics.add.group();
 
         const guard1Limits = {
-        minX: 150,
-        maxX: 400,
-        minY: 50,
-        maxY: 150,
+            minX: 150,
+            maxX: 400,
+            minY: 50,
+            maxY: 150,
         };
 
-        // 5 * 32 = 160 | 32 * 32 = 1024
-        // guarda que pode andar 64 pixels (2 tiles) para qualquer lado
-        // direções aceitas: all, horizontal, vertical, right, direita, left, esquerda, down, baixo, up, cima (aceita português e inglês)
-        const guard1 = new Guard(
-        this,
-        160,
-        1024,
-        "guard",
-        this.player,
-        [],
-        64,
-        "vertical",
-        );
+        const guard1 = new Guard(this, 160, 1024, "guard", this.player, [], 64, "vertical");
         this.guardsGroup.add(guard1);
 
-        // guarda que anda 32 pixels
         const guard2 = new Guard(this, 600, 800, "guard", this.player, [], 32);
         this.guardsGroup.add(guard2);
 
@@ -219,6 +190,7 @@ export class Level_1 extends Phaser.Scene {
             this.physics.add.collider(this.guardsGroup, objetos);
         }
 
+        // cria os npcs correndo em panico
         this.npcsGroup = this.physics.add.group();
         this.physics.add.collider(this.npcsGroup, walls);
         if (objetos) {
@@ -238,76 +210,56 @@ export class Level_1 extends Phaser.Scene {
             npc.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
         });
 
-        // ── Sistema de Pedras ────────────────────────────────────────────
-
-        // Gera a textura visual da pedra (círculo cinza via graphics)
-        this.createStoneTexture();
-
-        // Grupo estático de pedras no chão (as coletáveis)
-        // Usamos um grupo dinâmico para poder remover pedras ao coletar
+        // pedras q ficam caidas no chao
         this.groundStonesGroup = this.physics.add.group();
-
-        // Grupo de pedras voando (projéteis arremessados pelo player)
         this.flyingStonesGroup = this.physics.add.group();
 
-        // ── Posições fixas das pedras no mapa ─────────────────────────
-        // Cada objeto {x, y} é onde uma pedra aparece no mapa
-        // Ajuste as coordenadas de acordo com o layout do seu mapa!
         const stonePositions = [
-            { x: 80,  y: 1024 },  // próximo ao spawn do player
-            { x: 200, y: 990  },  // perto do guarda 1
-            { x: 400, y: 850  },  // caminho do meio do mapa
-            { x: 550, y: 800  },  // próximo ao guarda 2
+            { x: 80,  y: 1024 },
+            { x: 200, y: 990  },
+            { x: 400, y: 850  },
+            { x: 550, y: 800  },
         ];
 
-        // Cria uma pedra no chão para cada posição definida
         stonePositions.forEach(pos => {
             const stone = new Stone(this, pos.x, pos.y);
-            this.groundStonesGroup.add(stone); // adiciona ao grupo de pedras no chão
+            this.groundStonesGroup.add(stone);
         });
 
-        // ── Colisão das pedras voando com as paredes ────────────────────
-        // Quando uma pedra voando bate numa parede, chama onHitWall()
+        // destroi a pedra se ela bater na parede
         this.physics.add.collider(this.flyingStonesGroup, walls, (stone) => {
-            stone.onHitWall(); // avisa a pedra que bateu na parede
+            stone.onHitWall();
         });
 
-        // ── Teclas de interação com pedras ──────────────────────────
+        // define as teclas do teclado
         this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         this.keyF = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
 
-        // Cooldown para evitar que o player colete ou arremesse várias vezes
-        // com um único pressionamento de tecla (debounce manual)
-        this.collectCooldown  = false; // E — coletar
-        this.throwCooldown    = false; // F — arremessar
+        this.collectCooldown  = false;
+        this.throwCooldown    = false;
 
-        // ── Listener: pedra pousou ───────────────────────────────────
-        // Quando uma Stone emite 'stoneLanded', verificamos quais guardas
-        // estão no raio sonoro e os mandamos investigar o local
+        // escuta quando a pedra faz barulho
         this.events.on('stoneLanded', ({ x, y }) => {
             this.onStoneLanded(x, y);
         });
 
-        // escutar o seen para disparar o game over
+        // escuta interaçoes do player
         this.events.on("seen", this.onPlayerCaught, this);
-
-        // escutar o playerDied para reiniciar a fase
         this.events.on("playerDied", this.onPlayerDied, this);
 
-        // animações
+        // cria as animacoes da cena
         AnimationManager.createCharacterAnims(this, "young_niccolo");
         AnimationManager.createCharacterAnims(this, "guard");
 
-        // câmera seguindo o player
+        // faz a camera seguir o personagem
         this.cameras.main.startFollow(this.player, true);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setRoundPixels(true);
 
-        // controles do teclado
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys("W,A,S,D");
 
-        // entrada nova no level: salva o ponto de início
+        // sistema de save qndo entra no level
         if (!data?.isRestart && !data?.fromSave) {
             SaveManager.save({
                 level: 'Level_1',
@@ -317,7 +269,7 @@ export class Level_1 extends Phaser.Scene {
             });
         }
 
-        // se vier do "Continuar" no menu
+        // restaura se der continuar
         if(data && data.fromSave) {
             const save = SaveManager.load();
             if (save) {
@@ -329,40 +281,42 @@ export class Level_1 extends Phaser.Scene {
             this.canMove = true;
         }
 
-         // se for restart após morte/captura
+        // volta pro comeco qndo morre
         if (data && data.isRestart) {
             if (!this.bgMusic.isPlaying) {
-                this.bgMusic.play(); // só toca se não estiver tocando
+                this.bgMusic.play(); 
             }
 
             this.bgMusic.setVolume(0.5);
             this.canMove = true;
         }
-
     }
 
+    // da o play na musica e solta o texto do começo
     iniciarCutscene() {
         if (!this.bgMusic.isPlaying) {
-        this.bgMusic.play(); // ssó toca se ainda não estiver tocando
+            this.bgMusic.play(); 
         }
 
         this.tweens.add({
-        targets: this.bgMusic,
-        volume: 0.5,
-        duration: 4000,
+            targets: this.bgMusic,
+            volume: 0.5,
+            duration: 4000,
         });
 
         this.time.delayedCall(2000, () => {
-        this.showIntroText();
+            this.showIntroText();
         });
     }
 
+    // roda a cada frame, controla interacoes e movimentacao
     update() {
         if (!this.canMove) return;
         this.player.update(this.cursors, this.keys, this.canMove);
 
         this.updateHeartsHUD();
         
+        // ativa o fogo escondido qndo chega perto
         if (this.fireSurpriseLayer) {
             const tileX = this.fireSurpriseLayer.worldToTileX(this.player.x);
             const tileY = this.fireSurpriseLayer.worldToTileY(this.player.y);
@@ -383,37 +337,31 @@ export class Level_1 extends Phaser.Scene {
         }
 
         this.guardsGroup.getChildren().forEach((guard) => {
-        guard.update();
+            guard.update();
         });
 
-        // Atualiza as pedras voando (verifica distância máxima)
         this.flyingStonesGroup.getChildren().forEach((stone) => {
-        stone.update();
+            stone.update();
         });
 
-        // ── Tecla E — Coletar pedra do chão ───────────────────────────
+        // checa arremesso e coleta
         if (Phaser.Input.Keyboard.JustDown(this.keyE) && !this.collectCooldown) {
             this.tryCollectStone();
         }
 
-        // ── Tecla F — Lógica de mira e arremesso ────────────────────────
-        // Se F está sendo SEGURADO e o player tem pedras: desenha a trajetória
         if (this.keyF.isDown && this.player.stonesCarried > 0) {
             this.updateTrajectory();
         } else {
-            // F foi soltado ou o player não tem pedras: limpa o desenho
             this.trajectoryGraphics.clear();
         }
 
-        // Se F acabou de ser SOLTO (JustUp) e o cooldown permite: lança a pedra
         if (Phaser.Input.Keyboard.JustUp(this.keyF) && !this.throwCooldown) {
             this.tryThrowStone();
         }
 
-        // ── Prompts de interação ───────────────────────────────────
         this.updatePrompts();
 
-        // verifica se o player está em um tile de fogo
+        // da dano se o player pisar em qualquer dos fogos
         const tileFire = this.fireLayer.getTileAtWorldXY(this.player.x, this.player.y);
         let tileSurpriseFire = null;
         if (this.fireSurpriseLayer) {
@@ -428,18 +376,11 @@ export class Level_1 extends Phaser.Scene {
         }
     }
 
-    // ----------------------------------------------------------
-    // updateTrajectory()
-    //   Desenha pontos pontilhados no caminho que a pedra vai percorrer.
-    //   Chamado a cada frame enquanto F está pressionado.
-    //   Para de desenhar ao encontrar uma parede (usa castRay igual ao guarda).
-    // ----------------------------------------------------------
+    // desenha os pontinhos indicando onde a pedra vai cair
     updateTrajectory() {
         const g = this.trajectoryGraphics;
-        g.clear(); // apaga o desenho do frame anterior antes de redesenhar
+        g.clear(); 
 
-        // Vetor de direção baseado no lastDirection do player
-        // (mesma lógica do Stone.throw)
         const dirVectors = {
             up:    { dx: 0,  dy: -1 },
             down:  { dx: 0,  dy:  1 },
@@ -449,60 +390,45 @@ export class Level_1 extends Phaser.Scene {
 
         const dir = dirVectors[this.player.lastDirection] || dirVectors['right'];
 
-        // Parâmetros do rastro
-        const maxDistance = 200; // igual ao maxDistance da Stone
-        const dotSpacing  = 14;  // distância entre cada ponto (pixels)
-        const dotRadius   = 2.5; // tamanho de cada ponto
-        const step        = 2;   // precisão do ray cast (menor = mais preciso)
+        const maxDistance = 200; 
+        const dotSpacing  = 14;  
+        const dotRadius   = 2.5; 
+        const step        = 2;   
 
-        // Ponto de início: posição atual do player
         let rayX = this.player.x;
         let rayY = this.player.y;
 
-        // Avança passo a passo verificando paredes
-        // Acumula distância para saber onde desenhar os pontos
         let distanceSoFar = 0;
-        let nextDotAt     = dotSpacing; // distância em que o próximo ponto deve aparecer
+        let nextDotAt     = dotSpacing;
 
+        // faz um raio ate bater numa parede
         while (distanceSoFar < maxDistance) {
-            // Avança um passo
             rayX += dir.dx * step;
             rayY += dir.dy * step;
             distanceSoFar += step;
 
-            // Verifica se bateu numa parede
             const tile = this.wallsLayer.getTileAtWorldXY(rayX, rayY);
-            if (tile) break; // para o rastro aqui
+            if (tile) break; 
 
-            // Se chegou no ponto onde o próximo ponto deve aparecer, desenha
             if (distanceSoFar >= nextDotAt) {
-                // Gradiente de opacidade: mais transparente conforme se afasta
-                const progress = distanceSoFar / maxDistance; // 0 → 1
-                const alpha    = 1 - progress * 0.6;          // de 1.0 até 0.4
+                const progress = distanceSoFar / maxDistance;
+                const alpha    = 1 - progress * 0.6;          
 
-                // Cor branca semitransparente
                 g.fillStyle(0xffffff, alpha);
                 g.fillCircle(rayX, rayY, dotRadius);
 
-                nextDotAt += dotSpacing; // próximo ponto
+                nextDotAt += dotSpacing; 
             }
         }
 
-        // Desenha um círculo maior no ponto final para indicar o impacto
-        g.fillStyle(0xffdd88, 0.8); // amarelo, igual ao throwPrompt
+        g.fillStyle(0xffdd88, 0.8); 
         g.fillCircle(rayX, rayY, 4);
     }
 
-    // ----------------------------------------------------------
-    // updatePrompts()
-    //   Atualiza a visibilidade e posição dos prompts de interação
-    //   a cada frame. Chamado dentro do update().
-    // ----------------------------------------------------------
+    // gerencia qndo os textos de apertar E e F devem aparecer
     updatePrompts() {
-        const collectRadius = 40; // mesmo raio usado em tryCollectStone()
+        const collectRadius = 40; 
 
-        // ── Prompt [E] Pegar ─────────────────────────────────────
-        // Procura a pedra mais próxima dentro do raio
         let closestStone = null;
         let closestDist  = Infinity;
 
@@ -518,31 +444,20 @@ export class Level_1 extends Phaser.Scene {
         });
 
         if (closestStone) {
-            // Tem pedra perto: mostra o prompt acima dela (16px acima)
             this.collectPrompt.setPosition(closestStone.x, closestStone.y - 16);
             this.collectPrompt.setVisible(true);
         } else {
-            // Nenhuma pedra perto: esconde o prompt
             this.collectPrompt.setVisible(false);
         }
 
-        // ── Prompt [F] Lançar ─────────────────────────────────────
-        // Só aparece quando o player tem pelo menos 1 pedra no inventário
         this.throwPrompt.setVisible(this.player.stonesCarried > 0);
     }
 
-    // ----------------------------------------------------------
-    // tryCollectStone()
-    //   Tenta coletar uma pedra do chão próxima ao player.
-    //   Raio de coleta: 40 pixels.
-    // ----------------------------------------------------------
+    // ve se tem uma pedra perto pra por no inventario
     tryCollectStone() {
-        const collectRadius = 40; // distância máxima para coletar
-
-        // Pega todas as pedras do chão e filtra as que estão próximas
+        const collectRadius = 40; 
         const stones = this.groundStonesGroup.getChildren();
 
-        // Procura a pedra mais próxima dentro do raio
         let closestStone = null;
         let closestDist  = Infinity;
 
@@ -557,76 +472,60 @@ export class Level_1 extends Phaser.Scene {
             }
         });
 
-        // Se encontrou uma pedra próxima e o player tem espaço no inventário
         if (closestStone && this.player.collectStone()) {
-            closestStone.destroy(); // remove a pedra do chão
-            this.updateStonesHUD();  // atualiza o contador na tela
+            closestStone.destroy(); 
+            this.updateStonesHUD();  
         }
 
-        // Cooldown de 200ms para evitar múltiplas coletas por pressionamento
         this.collectCooldown = true;
         this.time.delayedCall(200, () => { this.collectCooldown = false; });
     }
 
-    // ----------------------------------------------------------
-    // tryThrowStone()
-    //   Cria uma pedra voando na direção que o player está olhando.
-    //   Só funciona se o player tiver pedras no inventário.
-    // ----------------------------------------------------------
+    // lança a pedra na direcao q o player ta olhando
     tryThrowStone() {
-        // Tenta decrementar o inventário — se não tiver pedras, para aqui
         if (!this.player.canThrowStone()) return;
 
-        // Atualiza o HUD antes de criar a pedra
         this.updateStonesHUD();
 
-        // Cria uma nova pedra na posição atual do player
         const stone = new Stone(this, this.player.x, this.player.y);
-
-        // Adiciona ao grupo de pedras voando para colisão e update
         this.flyingStonesGroup.add(stone);
-
-        // Arremessa na direção que o player está olhando
         stone.throw(this.player.lastDirection);
 
-        // Cooldown de 400ms para evitar spam de pedras
         this.throwCooldown = true;
         this.time.delayedCall(400, () => { this.throwCooldown = false; });
     }
 
-    // ----------------------------------------------------------
-    // onStoneLanded(x, y)
-    //   Chamado pelo evento 'stoneLanded'. Verifica quais guardas
-    //   estão no raio sonoro e manda cada um investigar.
-    // ----------------------------------------------------------
+    // avisa os guardas proximos 
     onStoneLanded(x, y) {
-        // Raio em que o barulho da pedra é ouvido pelos guardas (pixels)
         const soundRadius = 150;
 
         this.guardsGroup.getChildren().forEach(guard => {
-            // Calcula a distância entre o guarda e o ponto de impacto
             const dist = Phaser.Math.Distance.Between(
                 guard.x, guard.y,
                 x, y
             );
 
-            // Se o guarda está no raio sonoro, manda investigar
             if (dist <= soundRadius) {
                 guard.investigate(x, y);
             }
         });
     }
 
-    // ----------------------------------------------------------
-    // updateStonesHUD()
-    //   Atualiza o texto de pedras na tela com o valor atual.
-    // ----------------------------------------------------------
+    // esconde a ui se nao tiver pedra, ou mostra a quantidade q tem
     updateStonesHUD() {
-        if (this.stonesText) {
-            this.stonesText.setText(`Pedras: ${this.player.stonesCarried}/${this.player.maxStones}`);
+        const pedras = this.player.stonesCarried;
+
+        if (pedras > 0) {
+            this.stoneIcon.setVisible(true);
+            this.stonesText.setVisible(true);
+            this.stonesText.setText(`x ${pedras}`);
+        } else {
+            this.stoneIcon.setVisible(false);
+            this.stonesText.setVisible(false);
         }
     }
 
+    // textos do tutorial q passam na tela
     showIntroText() {
         const lines = [
         "> Brescia, Itália, 1512.",
@@ -641,60 +540,56 @@ export class Level_1 extends Phaser.Scene {
         });
     }
 
+    // qndo o guarda acha o player
     onPlayerCaught() {
-        if (!this.canMove) return; // evita rodar duas vezes se dois guardas virem ao mesmo tempo
+        if (!this.canMove) return; 
 
         this.canMove = false;
 
-        // PARA o player completamente
         this.player.setVelocity(0);
         this.player.setTint(0xff0000);
 
-        // para a animação do player
         if (this.player.anims.isPlaying) this.player.anims.stop();
-        this.player.setFrame(1); // frame de ser pego
+        this.player.setFrame(1); 
 
-        // paralisa/destrói todos os guardas dentro do grupo
+        // desliga os guardas p nao virarem e continuarem olhando
         this.guardsGroup.getChildren().forEach((g) => {
-        g.isActive = false; // DESLIGA O GUARDA
+            g.isActive = false; 
 
-        if (g.body) {
-            g.body.setVelocity(0, 0);
-            g.body.moves = false; // garante que não mexe mais
-        }
+            if (g.body) {
+                g.body.setVelocity(0, 0);
+                g.body.moves = false; 
+            }
 
-        if (g.anims.isPlaying) {
-            g.anims.stop();
-            g.setFrame(1); // frame de ver o player
-        }
-
-        // g.visionGraphics.clear();
-        // g.visionGraphics.setVisible(false);
+            if (g.anims.isPlaying) {
+                g.anims.stop();
+                g.setFrame(1); 
+            }
         });
 
-        // fallback em caso de erro no diálogo
         const restartTimeout = this.time.delayedCall(5000, () => {
-        console.warn("Timeout: reiniciando cena após ser pego");
-        this.scene.restart({ isRestart: true });
+            this.scene.restart({ isRestart: true });
         });
 
         this.dialogue.showDialogue(
-        "> Você foi visto pelos guardas!",
-        null,
-        null,
-        () => {
-            restartTimeout.remove();
-            this.scene.restart({ isRestart: true });
-        },
+            "> Você foi visto pelos guardas!",
+            null,
+            null,
+            () => {
+                restartTimeout.remove();
+                this.scene.restart({ isRestart: true });
+            },
         );
     }
 
+    //dano pelo fogo
     handlePlayerFire(player, tile) {
         player.takeDamage(1, true, true);
     }
 
+    // qndo zera os coracoes e morre
     onPlayerDied() {
-        if (!this.canMove) return; // previne múltiplas execuções
+        if (!this.canMove) return; 
 
         this.canMove = false;
 
@@ -704,33 +599,33 @@ export class Level_1 extends Phaser.Scene {
         this.player.setTint(0xff0000);
 
         if (this.player.anims.isPlaying) this.player.anims.stop();
-        this.player.setFrame(1); // frame de morte
+        this.player.setFrame(1); 
 
         this.guardsGroup.getChildren().forEach((g) => {
-        g.isActive = false;
+            g.isActive = false;
 
-        if (g.body) {
-            g.body.setVelocity(0, 0);
-            g.body.moves = false;
-        }
+            if (g.body) {
+                g.body.setVelocity(0, 0);
+                g.body.moves = false;
+            }
 
-        if (g.anims.isPlaying) {
-            g.anims.stop();
-            g.setFrame(1);
-        }
+            if (g.anims.isPlaying) {
+                g.anims.stop();
+                g.setFrame(1);
+            }
         });
 
         this.dialogue.showDialogue(
-        "> Niccolò sucumbiu às chamas!",
-        null,
-        null,
-        () => {
-            this.scene.restart({ isRestart: true });
-        },
+            "> Niccolò sucumbiu às chamas!",
+            null,
+            null,
+            () => {
+                this.scene.restart({ isRestart: true });
+            },
         );
     }
 
-    //logica de vida/coraçoes
+    // checa qnto tem de vida p botar os coracoes certos (cheio, meio ou vazio)
     updateHeartsHUD() {
         const health = this.player.health;
 
@@ -738,13 +633,10 @@ export class Level_1 extends Phaser.Scene {
             const heartValue = index * 2; 
 
             if (health >= heartValue + 2) {
-                // vida cheua
                 heart.setFrame(0); 
             } else if (health === heartValue + 1) {
-                // metade
                 heart.setFrame(1); 
             } else {
-                // vazio
                 heart.setFrame(2); 
             }
         });
