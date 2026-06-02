@@ -7,40 +7,7 @@ export class Start extends Phaser.Scene {
         super('Start');
     }
 
-    preload() {
-        // ASSETS DO START
-        this.load.image('scene1_frame1', 'assets/intro/scene1_1.png');
-        this.load.image('scene1_frame2', 'assets/intro/scene1_2.png');
-        this.load.image('scene1bright', 'assets/intro/scene1bright.png');
-        this.load.image('selector', 'assets/intro/selector.png');
-        this.load.image('livroZoom', 'assets/intro/livroZoom.png');
-        
-        // UI
-        this.load.image('ui_box_narrator', 'assets/ui/ui_box_narrator.png');
-        this.load.image('ui_box_character', 'assets/ui/ui_box_character.png');
-        this.load.image('confirm_box', 'assets/ui/confirm_box.png');
-
-        // EFEITOS
-        this.load.spritesheet('flare', 'assets/intro/flare.png', { frameWidth: 16, frameHeight: 16 });
-        this.load.image('textGlow', 'assets/intro/glow.png');
-      
-        // SPRITESHEETS
-        this.load.spritesheet('curtains', 'assets/intro/curtains.png', { frameWidth: 320, frameHeight: 180 });
-        this.load.spritesheet('startTexts', 'assets/intro/startTexts.png', { frameWidth: 320, frameHeight: 180 });
-        
-        // ÁUDIO
-        this.load.audio('intro', 'assets/audio/intro.wav');
-        this.load.audio('burning', 'assets/audio/burning.wav');
-        // utau
-        this.load.audio('voice_a', 'assets/audio/voices/voice1/voice_a.wav');
-        this.load.audio('voice_e', 'assets/audio/voices/voice1/voice_e.wav');
-        this.load.audio('voice_i', 'assets/audio/voices/voice1/voice_i.wav');
-        this.load.audio('voice_o', 'assets/audio/voices/voice1/voice_o.wav');
-        this.load.audio('voice_u', 'assets/audio/voices/voice1/voice_u.wav');
-
-        // FONTES
-        this.load.bitmapFont('pixelFont', 'assets/fonts/pixelFont/pixelFont.png', 'assets/fonts/pixelFont/pixelFont.xml');
-    }
+    // preload() removido — todos os assets são carregados pelo Preloader.js
 
     create() {
         const { width, height } = this.scale;

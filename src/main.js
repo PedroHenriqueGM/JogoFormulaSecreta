@@ -1,6 +1,7 @@
-import { Start } from './scenes/Start.js'; // Certifique-se do nome correto do arquivo
-import { Level_1 } from './scenes/Level_1.js'; // Certifique-se do nome correto do arquivo
-import { PauseMenu } from './scenes/PauseMenu.js'; 
+import { Preloader } from './scenes/Preloader.js'; // carrega todos os assets antes do jogo começar
+import { Start }    from './scenes/Start.js';
+import { Level_1 }  from './scenes/Level_1.js';
+import { PauseMenu } from './scenes/PauseMenu.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -24,6 +25,7 @@ const config = {
         }
     },
     scene: [
+        Preloader, // roda primeiro: carrega todos os assets e inicia o Start
         Start,
         Level_1,
         PauseMenu
